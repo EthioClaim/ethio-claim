@@ -5,7 +5,8 @@ import type { ClaimStatus, RiskLevel } from "@/types";
 
 export function ClaimStatusBadge({ status }: { status: ClaimStatus }) {
   return (
-    <span className={`badge ${getStatusColor(status)}`}>
+    <span className={`badge ${getStatusColor(status)} shadow-xs`}>
+      <span className="w-1.5 h-1.5 rounded-full opacity-70 bg-current inline-block" />
       {getStatusLabel(status)}
     </span>
   );
@@ -13,7 +14,7 @@ export function ClaimStatusBadge({ status }: { status: ClaimStatus }) {
 
 export function RiskBadge({ risk }: { risk: RiskLevel }) {
   return (
-    <span className={`badge ${getRiskBadgeColor(risk)}`}>
+    <span className={`badge ${getRiskBadgeColor(risk)} shadow-xs`}>
       {risk}
     </span>
   );
@@ -21,8 +22,15 @@ export function RiskBadge({ risk }: { risk: RiskLevel }) {
 
 export function AIProcessingBadge() {
   return (
-    <span className="badge" style={{ background: "rgba(6,182,212,0.1)", color: "#67e8f9", border: "1px solid rgba(6,182,212,0.2)" }}>
-      <span className="w-1.5 h-1.5 rounded-full mr-1 animate-pulse" style={{ background: "#06b6d4", display: "inline-block" }} />
+    <span 
+      className="badge shadow-xs" 
+      style={{ 
+        background: "rgba(100, 210, 255, 0.12)", 
+        color: "#64D2FF", 
+        border: "1px solid rgba(100, 210, 255, 0.3)" 
+      }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full mr-1 animate-pulse bg-[#64D2FF] inline-block" />
       AI Processing
     </span>
   );

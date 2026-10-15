@@ -133,11 +133,11 @@ export default function NewClaimPage() {
 
       <StepIndicator current={step} />
 
-      <div className="card p-6 animate-fade-in-up">
+      <div className="card apple-glass p-6 md:p-8 animate-fade-in-up">
         {/* Step 1: Claimant */}
         {step === 1 && (
-          <div className="space-y-4">
-            <h3 className="text-base font-semibold mb-4">Claimant Information</h3>
+          <div className="flex flex-col gap-5">
+            <h3 className="text-base font-semibold mb-1">Claimant Information</h3>
             <div className="grid grid-cols-2 gap-4">
               <Field label="Full Name *" id="claimant-name">
                 <input id="claimant-name" className="input" value={form.claimant.name} onChange={(e) => update("claimant", "name", e.target.value)} placeholder="Tesfaye Alemu" />

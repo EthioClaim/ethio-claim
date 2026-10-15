@@ -47,54 +47,54 @@ export function getStatusLabel(status: ClaimStatus): string {
 
 export function getStatusColor(status: ClaimStatus): string {
   const colors: Record<ClaimStatus, string> = {
-    DRAFT: "bg-slate-700 text-slate-200",
-    SUBMITTED: "bg-blue-900 text-blue-200",
-    EVIDENCE_CHECK: "bg-indigo-900 text-indigo-200",
-    NEEDS_INFORMATION: "bg-yellow-900 text-yellow-200",
-    AI_PROCESSING: "bg-cyan-900 text-cyan-200",
-    TRIAGED: "bg-teal-900 text-teal-200",
-    FAST_REVIEW: "bg-green-900 text-green-200",
-    EXAMINER: "bg-purple-900 text-purple-200",
-    INVESTIGATION: "bg-red-900 text-red-200",
-    CLOSED: "bg-slate-800 text-slate-400",
+    DRAFT: "bg-white/10 text-white/80 border border-white/15",
+    SUBMITTED: "bg-[#0A84FF]/15 text-[#64D2FF] border border-[#0A84FF]/30",
+    EVIDENCE_CHECK: "bg-[#5E5CE6]/15 text-[#A5A6F6] border border-[#5E5CE6]/30",
+    NEEDS_INFORMATION: "bg-[#FF9F0A]/15 text-[#FFD60A] border border-[#FF9F0A]/30",
+    AI_PROCESSING: "bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30",
+    TRIAGED: "bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30",
+    FAST_REVIEW: "bg-[#30D158]/15 text-[#30D158] border border-[#30D158]/30",
+    EXAMINER: "bg-[#BF5AF2]/15 text-[#E39FF6] border border-[#BF5AF2]/30",
+    INVESTIGATION: "bg-[#FF453A]/15 text-[#FF6961] border border-[#FF453A]/30",
+    CLOSED: "bg-white/5 text-white/40 border border-white/10",
   };
-  return colors[status] ?? "bg-slate-700 text-slate-200";
+  return colors[status] ?? "bg-white/10 text-white/80 border border-white/15";
 }
 
 export function getRiskColor(risk: RiskLevel): string {
   const colors: Record<RiskLevel, string> = {
-    LOW: "text-emerald-400",
-    MEDIUM: "text-yellow-400",
-    HIGH: "text-orange-400",
-    CRITICAL: "text-purple-400",
+    LOW: "text-[#30D158]",
+    MEDIUM: "text-[#FF9F0A]",
+    HIGH: "text-[#FF453A]",
+    CRITICAL: "text-[#BF5AF2]",
   };
-  return colors[risk];
+  return colors[risk] ?? "text-white/60";
 }
 
 export function getRiskBadgeColor(risk: RiskLevel): string {
   const colors: Record<RiskLevel, string> = {
-    LOW: "bg-emerald-900/60 text-emerald-300 border border-emerald-700",
-    MEDIUM: "bg-yellow-900/60 text-yellow-300 border border-yellow-700",
-    HIGH: "bg-orange-900/60 text-orange-300 border border-orange-700",
-    CRITICAL: "bg-purple-900/60 text-purple-300 border border-purple-700",
+    LOW: "bg-[#30D158]/15 text-[#30D158] border border-[#30D158]/30",
+    MEDIUM: "bg-[#FF9F0A]/15 text-[#FF9F0A] border border-[#FF9F0A]/30",
+    HIGH: "bg-[#FF453A]/15 text-[#FF453A] border border-[#FF453A]/30",
+    CRITICAL: "bg-[#BF5AF2]/15 text-[#BF5AF2] border border-[#BF5AF2]/30",
   };
-  return colors[risk];
+  return colors[risk] ?? "bg-white/10 text-white/70 border border-white/15";
 }
 
 export function getQualityColor(quality: ImageQuality): string {
   const colors: Record<ImageQuality, string> = {
-    PASS: "text-emerald-400",
-    LOW_CONFIDENCE: "text-yellow-400",
-    FAIL: "text-red-400",
+    PASS: "text-[#30D158]",
+    LOW_CONFIDENCE: "text-[#FF9F0A]",
+    FAIL: "text-[#FF453A]",
   };
-  return colors[quality];
+  return colors[quality] ?? "text-white/60";
 }
 
 export function getSeverityColor(severity: DamageSeverity): string {
   const colors: Record<DamageSeverity, string> = {
-    MINOR: "text-yellow-400",
-    MODERATE: "text-orange-400",
-    SEVERE: "text-red-400",
+    MINOR: "text-[#FFD60A]",
+    MODERATE: "text-[#FF9F0A]",
+    SEVERE: "text-[#FF453A]",
   };
-  return colors[severity];
+  return colors[severity] ?? "text-white/60";
 }

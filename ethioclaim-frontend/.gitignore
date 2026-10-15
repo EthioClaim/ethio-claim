@@ -1,4 +1,10 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# IDE / Editor files
+.vscode/
+.idea/
+.agent/
+.agent/rules
+# OS files
+Thumbs.db
 
 # dependencies
 /node_modules

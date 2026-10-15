@@ -22,11 +22,11 @@ export default function AdminPage() {
   }, []);
 
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 animate-fade-in-up">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
         <div>
           <h2 className="text-xl font-bold" style={{ fontFamily: "Space Grotesk" }}>Administration</h2>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Organization settings and user management</p>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Organization settings and user management</p>
         </div>
         <button id="admin-invite-user" className="btn btn-primary">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -37,8 +37,8 @@ export default function AdminPage() {
       </div>
 
       {/* Org info */}
-      <div className="card p-6">
-        <h3 className="text-sm font-semibold mb-4">Organization</h3>
+      <div className="card apple-glass p-6 md:p-7">
+        <h3 className="text-sm font-semibold mb-4 leading-snug">Organization</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
           {[
             { label: "Name",      value: "Awash Insurance Co." },
@@ -46,8 +46,8 @@ export default function AdminPage() {
             { label: "API Access",value: "Enabled" },
             { label: "Region",    value: "Ethiopia (NBE compliant)" },
           ].map((item) => (
-            <div key={item.label}>
-              <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{item.label}</div>
+            <div key={item.label} className="flex flex-col gap-1">
+              <div className="text-xs" style={{ color: "var(--text-muted)" }}>{item.label}</div>
               <div className="text-sm font-medium">{item.value}</div>
             </div>
           ))}
@@ -55,25 +55,25 @@ export default function AdminPage() {
       </div>
 
       {/* User stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
         {[
           { label: "Total Users",     value: users.length,                             color: "#3b82f6" },
           { label: "Active",          value: users.filter((u) => u.status === "ACTIVE").length,  color: "#10b981" },
           { label: "Examiners",       value: users.filter((u) => u.role === "EXAMINER").length,  color: "#f59e0b" },
           { label: "Claims Assigned", value: users.reduce((s, u) => s + u.claimsAssigned, 0),    color: "#8b5cf6" },
         ].map((s) => (
-          <div key={s.label} className="card p-4">
-            <div className="text-2xl font-bold mb-1" style={{ color: s.color, fontFamily: "Space Grotesk" }}>{s.value}</div>
+          <div key={s.label} className="card apple-glass p-4 sm:p-5 flex flex-col gap-1">
+            <div className="text-2xl font-bold" style={{ color: s.color, fontFamily: "Space Grotesk" }}>{s.value}</div>
             <div className="text-xs" style={{ color: "var(--text-muted)" }}>{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* User table */}
-      <div className="card">
-        <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-          <h3 className="text-sm font-semibold">Users</h3>
-          <input id="admin-user-search" type="text" className="input" placeholder="Search users…" style={{ width: "220px", height: "32px", fontSize: "0.8rem" }} />
+      <div className="card apple-glass overflow-hidden">
+        <div className="px-6 py-4.5 border-b flex items-center justify-between gap-4" style={{ borderColor: "var(--border)" }}>
+          <h3 className="text-sm font-semibold leading-snug">Users</h3>
+          <input id="admin-user-search" type="text" className="input" placeholder="Search users…" style={{ width: "220px", height: "36px", fontSize: "0.8rem" }} />
         </div>
         {loading ? (
           <div className="p-6 space-y-3">

@@ -8,11 +8,11 @@ import type { Evidence } from "@/types";
 
 export default function EvidencePage({ params }: { params: Promise<{ claimId: string }> }) {
   const { claimId } = use(params);
-  const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [evidence, setEvidence]   = useState<Evidence[]>([]);
+  const [loading, setLoading]     = useState(true);
   const [uploading, setUploading] = useState(false);
-  const [selected, setSelected] = useState<Evidence | null>(null);
-  const [dragging, setDragging] = useState(false);
+  const [selected, setSelected]   = useState<Evidence | null>(null);
+  const [dragging, setDragging]   = useState(false);
 
   useEffect(() => {
     fetchEvidence(claimId).then((e) => { setEvidence(e); setLoading(false); });
@@ -30,25 +30,28 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
   }
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6">
+      {/* ── Page Header ── */}
+      <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-[var(--border)]">
         <div>
-          <h3 className="text-lg font-bold" style={{ fontFamily: "Space Grotesk" }}>Evidence</h3>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>{evidence.length} files uploaded</p>
+          <h3 className="text-2xl font-extrabold text-white tracking-[-0.03em] heading-display">
+            Claim Photographic & Sensor Evidence
+          </h3>
+          <p className="text-sm text-[var(--text-muted)] mt-1">
+            {evidence.length} forensic inspection files uploaded and indexed
+          </p>
         </div>
       </div>
 
-      {/* Upload zone */}
+      {/* ── Dropzone (Apple Fluid Glass Target) ── */}
       <div
         id="evidence-dropzone"
-        className="card"
+        className={`card apple-glass p-8 sm:p-12 text-center cursor-pointer transition-all duration-300 ${
+          dragging ? "border-[#0A84FF] bg-[#0A84FF]/10 ring-4 ring-[#0A84FF]/20" : "hover:border-white/20 hover:bg-white/[0.04]"
+        }`}
         style={{
-          border: `2px dashed ${dragging ? "#3b82f6" : "var(--border-light)"}`,
-          background: dragging ? "rgba(59,130,246,0.05)" : "var(--bg-elevated)",
-          transition: "all 0.2s",
-          padding: "40px",
-          textAlign: "center",
-          cursor: "pointer",
+          borderStyle: "dashed",
+          borderWidth: "2px",
         }}
         onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
         onDragLeave={() => setDragging(false)}
@@ -65,61 +68,66 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
         />
         {uploading ? (
           <div className="flex flex-col items-center gap-3">
-            <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
+            <svg className="w-9 h-9 animate-spin text-[#0A84FF]" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
             </svg>
-            <p className="text-sm" style={{ color: "#93c5fd" }}>Uploading files…</p>
+            <p className="text-sm font-semibold text-[#64D2FF]">Uploading & hashing files…</p>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center" style={{ background: "rgba(59,130,246,0.1)" }}>
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="#3b82f6">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          <div className="flex flex-col items-center gap-3.5">
+            <div 
+              className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-sm"
+              style={{ background: "rgba(10, 132, 255, 0.12)", border: "1px solid rgba(10, 132, 255, 0.25)" }}
+            >
+              <svg className="w-7 h-7 text-[#0A84FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
             </div>
             <div>
-              <p className="text-sm font-medium">Drop files here or click to upload</p>
-              <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
-                Photos (JPG, PNG), documents (PDF) · Max 10MB each
+              <p className="text-sm font-bold text-white tracking-tight">Drop vehicle photos here, or click to browse</p>
+              <p className="text-xs text-[var(--text-muted)] mt-1">
+                JPG, PNG, HEIC, or scanned PDF documents · Up to 25MB each with EXIF metadata preservation
               </p>
             </div>
           </div>
         )}
       </div>
 
-      {/* Required evidence checklist */}
-      <div className="card p-5">
-        <h4 className="text-sm font-semibold mb-3">Required Evidence Checklist</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      {/* ── Required Evidence Checklist (Apple Inset Grouped) ── */}
+      <div className="card apple-glass p-6">
+        <h4 className="text-sm font-bold text-white tracking-[-0.015em] mb-3.5">
+          Mandatory Inspection Perspectives Checklist
+        </h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: "Front view",   icon: "📸", required: true },
-            { label: "Rear view",    icon: "📸", required: true },
-            { label: "Left side",    icon: "📸", required: true },
-            { label: "Right side",   icon: "📸", required: true },
+            { label: "Front view",      icon: "📸", required: true },
+            { label: "Rear view",       icon: "📸", required: true },
+            { label: "Left side",       icon: "📸", required: true },
+            { label: "Right side",      icon: "📸", required: true },
             { label: "Damage close-up", icon: "📸", required: true },
-            { label: "Claim form",   icon: "📄", required: true },
-            { label: "Repair estimate", icon: "📄", required: false },
-            { label: "Police report",   icon: "📄", required: false },
+            { label: "Claim form",      icon: "📄", required: true },
+            { label: "Repair estimate",  icon: "📄", required: false },
+            { label: "Police report",    icon: "📄", required: false },
           ].map((item) => {
             const uploaded = evidence.some((e) => e.viewType?.toLowerCase().includes(item.label.split(" ")[0].toLowerCase()));
             return (
               <div
                 key={item.label}
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
+                className="flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl transition-colors"
                 style={{
-                  background: uploaded ? "rgba(16,185,129,0.08)" : "var(--bg-elevated)",
-                  border: `1px solid ${uploaded ? "rgba(16,185,129,0.2)" : "var(--border)"}`,
+                  background: uploaded ? "rgba(48, 209, 88, 0.08)" : "rgba(255, 255, 255, 0.03)",
+                  border: `1px solid ${uploaded ? "rgba(48, 209, 88, 0.25)" : "var(--border)"}`,
                 }}
               >
                 <span>{item.icon}</span>
-                <span className="text-sm flex-1">{item.label}</span>
+                <span className="text-xs font-medium text-[var(--text-primary)] flex-1 truncate">{item.label}</span>
                 {item.required && !uploaded && (
-                  <span className="text-xs" style={{ color: "#f59e0b" }}>Required</span>
+                  <span className="text-[10px] font-semibold text-[#FF9F0A] bg-[#FF9F0A]/10 px-1.5 py-0.5 rounded">Required</span>
                 )}
                 {uploaded && (
-                  <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="#10b981">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  <svg className="w-4 h-4 flex-shrink-0 text-[#30D158]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
               </div>
@@ -128,61 +136,61 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
         </div>
       </div>
 
-      {/* Evidence grid */}
+      {/* ── Uploaded Gallery Grid (Apple Continuous Corners & Tactile Hover) ── */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="skeleton rounded-xl" style={{ aspectRatio: "4/3" }} />)}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => <div key={i} className="skeleton rounded-2xl" style={{ aspectRatio: "4/3" }} />)}
         </div>
       ) : evidence.length > 0 && (
-        <div>
-          <h4 className="text-sm font-semibold mb-3">Uploaded Files</h4>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="space-y-3">
+          <h4 className="text-sm font-bold text-white tracking-[-0.015em]">
+            Uploaded Evidence Repository
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {evidence.map((ev) => (
               <div
                 key={ev.id}
                 id={`evidence-${ev.id}`}
-                className="card card-hover cursor-pointer overflow-hidden"
-                style={{ aspectRatio: "4/3", position: "relative" }}
+                className="card apple-glass group cursor-pointer overflow-hidden rounded-2xl relative transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{ aspectRatio: "4/3" }}
                 onClick={() => setSelected(ev)}
               >
                 {ev.type === "IMAGE" ? (
                   <img
                     src={ev.thumbnailUrl ?? ev.url}
                     alt={ev.filename}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                 ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center" style={{ background: "var(--bg-elevated)" }}>
-                    <svg className="w-8 h-8 mb-2" fill="none" viewBox="0 0 24 24" stroke="#94a3b8">
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-white/[0.04]">
+                    <svg className="w-8 h-8 text-[var(--text-muted)] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
-                    <span className="text-xs font-mono">{ev.filename}</span>
+                    <span className="text-xs font-mono text-[var(--text-secondary)]">{ev.filename}</span>
                   </div>
                 )}
-                {/* Overlay badges */}
-                <div className="absolute top-2 left-2 flex gap-1">
+
+                {/* Translucent Corner Badges */}
+                <div className="absolute top-2.5 left-2.5 flex gap-1.5 z-10">
                   {ev.viewType && (
-                    <span className="badge text-xs" style={{ background: "rgba(0,0,0,0.7)", color: "#fff", backdropFilter: "blur(4px)" }}>
+                    <span className="badge text-[10px] font-semibold tracking-wide bg-black/70 text-white backdrop-blur-md border border-white/10 shadow-sm">
                       {ev.viewType}
                     </span>
                   )}
                 </div>
+
                 {ev.quality && (
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2.5 right-2.5 z-10">
                     <span
-                      className={`badge text-xs ${getQualityColor(ev.quality)}`}
-                      style={{
-                        background: "rgba(0,0,0,0.7)",
-                        backdropFilter: "blur(4px)",
-                      }}
+                      className={`badge text-[10px] font-semibold tracking-wide ${getQualityColor(ev.quality)} bg-black/70 backdrop-blur-md border border-white/10 shadow-sm`}
                     >
                       {ev.quality}
                     </span>
                   </div>
                 )}
-                <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5"
-                  style={{ background: "linear-gradient(transparent,rgba(0,0,0,0.7))" }}>
-                  <span className="text-xs text-white font-mono truncate block">{ev.filename}</span>
+
+                <div className="absolute bottom-0 inset-x-0 p-2.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                  <span className="text-[11px] text-white font-mono truncate block font-medium">{ev.filename}</span>
                 </div>
               </div>
             ))}
@@ -190,18 +198,20 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
         </div>
       )}
 
-      {/* Lightbox */}
+      {/* ── Lightbox Modal (Apple Fluid Sheet Material) ── */}
       {selected && (
         <div
           className="modal-overlay"
           onClick={() => setSelected(null)}
           id="evidence-lightbox"
         >
-          <div className="relative" onClick={(e) => e.stopPropagation()} style={{ maxWidth: "90vw", maxHeight: "85vh" }}>
+          <div 
+            className="relative card apple-glass p-3 max-w-4xl max-h-[90vh] overflow-hidden" 
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              className="absolute top-3 right-3 btn btn-secondary z-10"
+              className="absolute top-4 right-4 btn btn-secondary z-20 p-2 rounded-full"
               onClick={() => setSelected(null)}
-              style={{ padding: "6px" }}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -211,16 +221,19 @@ export default function EvidencePage({ params }: { params: Promise<{ claimId: st
               <img
                 src={selected.url}
                 alt={selected.filename}
-                style={{ maxWidth: "90vw", maxHeight: "80vh", borderRadius: "12px", display: "block" }}
+                className="max-w-[85vw] max-h-[75vh] rounded-xl object-contain block mx-auto shadow-2xl"
               />
             )}
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-sm font-mono text-white">{selected.filename}</span>
+            <div className="flex items-center justify-between mt-3 px-3">
+              <span className="text-xs font-mono font-bold text-white">{selected.filename}</span>
               <div className="flex gap-2">
-                {selected.viewType && <span className="badge" style={{ background: "rgba(59,130,246,0.2)", color: "#93c5fd" }}>{selected.viewType}</span>}
+                {selected.viewType && (
+                  <span className="badge" style={{ background: "rgba(10, 132, 255, 0.15)", color: "#64D2FF", border: "1px solid rgba(10, 132, 255, 0.3)" }}>
+                    {selected.viewType}
+                  </span>
+                )}
                 {selected.quality && (
-                  <span className={`badge ${getQualityColor(selected.quality)}`}
-                    style={{ background: "rgba(0,0,0,0.4)" }}>
+                  <span className={`badge ${getQualityColor(selected.quality)} bg-white/10 border border-white/10`}>
                     {selected.quality}
                   </span>
                 )}

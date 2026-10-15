@@ -43,7 +43,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex" style={{ background: "var(--bg-base)" }}>
       {/* Left panel */}
       <div
-        className="hidden lg:flex flex-col justify-between p-12 w-1/2"
+        className="hidden lg:flex flex-col justify-between p-8 xl:p-12 w-1/2 min-h-screen overflow-y-auto gap-8"
         style={{
           background: "linear-gradient(135deg, #0d1829 0%, #0f2040 50%, #0a1628 100%)",
           borderRight: "1px solid var(--border)",
@@ -52,7 +52,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)" }}
           >
             <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -60,24 +60,24 @@ export default function LoginPage() {
                 d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
             </svg>
           </div>
-          <span className="text-xl font-bold" style={{ fontFamily: "Space Grotesk, sans-serif", color: "#f1f5f9" }}>
+          <span className="text-xl font-bold tracking-tight" style={{ fontFamily: "Space Grotesk, sans-serif", color: "#f1f5f9" }}>
             EthioClaim
           </span>
         </div>
 
         {/* Hero text */}
-        <div className="space-y-6">
-          <div className="text-5xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+        <div className="space-y-6 my-auto py-4">
+          <div className="text-4xl xl:text-5xl font-bold leading-tight tracking-tight" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
             <span className="text-white">Motor Claims</span><br />
             <span className="gradient-text">Intelligence</span><br />
             <span className="text-white">Platform</span>
           </div>
-          <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: "420px" }}>
+          <p style={{ color: "var(--text-secondary)", lineHeight: 1.7, maxWidth: "440px" }}>
             AI-powered damage detection, evidence consistency analysis, and intelligent triage for Ethiopian insurers.
           </p>
 
           {/* Feature pills */}
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-2.5 sm:gap-3 pt-2">
             {["Damage Detection", "OCR Extraction", "Risk Triage", "Fraud Signals", "Image Similarity"].map((f) => (
               <span key={f} className="badge" style={{ background: "rgba(59,130,246,0.15)", color: "#93c5fd", border: "1px solid rgba(59,130,246,0.3)" }}>
                 {f}
@@ -86,27 +86,27 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* Bottom Overview Stats */}
+        <div className="grid grid-cols-3 gap-4 pt-6 mt-auto border-t border-white/10">
           {[
             { label: "Claims Processed", value: "1,847" },
             { label: "Avg. AI Accuracy", value: "91%" },
             { label: "Time Saved", value: "68%" },
           ].map((s) => (
-            <div key={s.label} className="card p-4">
-              <div className="text-2xl font-bold gradient-text">{s.value}</div>
-              <div className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>{s.label}</div>
+            <div key={s.label} className="card apple-glass p-4 sm:p-5 flex flex-col gap-1.5 transition-transform hover:-translate-y-0.5">
+              <div className="text-2xl font-bold gradient-text leading-tight">{s.value}</div>
+              <div className="text-xs text-[var(--text-muted)] leading-snug">{s.label}</div>
             </div>
           ))}
         </div>
       </div>
 
       {/* Right panel — login form */}
-      <div className="flex-1 flex items-center justify-center p-6">
-        <div className="w-full max-w-md animate-fade-in-up">
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-8 lg:p-12 min-h-screen overflow-y-auto">
+        <div className="w-full max-w-md my-auto py-8 animate-fade-in-up">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 lg:hidden mb-8">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)" }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg, #3b82f6, #06b6d4)" }}>
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
@@ -114,16 +114,18 @@ export default function LoginPage() {
             <span className="text-xl font-bold" style={{ fontFamily: "Space Grotesk, sans-serif" }}>EthioClaim</span>
           </div>
 
-          <h1 className="text-3xl font-bold mb-2" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
-            Welcome back
-          </h1>
-          <p className="mb-8" style={{ color: "var(--text-secondary)" }}>
-            Sign in to your EthioClaim workspace
-          </p>
+          <div className="mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2 leading-tight" style={{ fontFamily: "Space Grotesk, sans-serif" }}>
+              Welcome back
+            </h1>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+              Sign in to your EthioClaim workspace
+            </p>
+          </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="label">Email address</label>
+              <label htmlFor="email" className="label mb-2">Email address</label>
               <input
                 id="email"
                 type="email"
@@ -137,7 +139,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="label">Password</label>
+              <label htmlFor="password" className="label mb-2">Password</label>
               <input
                 id="password"
                 type="password"
@@ -176,15 +178,15 @@ export default function LoginPage() {
           </form>
 
           {/* Demo accounts */}
-          <div className="mt-8">
-            <p className="text-xs mb-3" style={{ color: "var(--text-muted)" }}>DEMO ACCOUNTS (password: demo1234)</p>
-            <div className="space-y-2">
+          <div className="mt-8 pt-6 border-t border-[var(--border)]">
+            <p className="text-xs mb-3 font-semibold tracking-wider uppercase text-[var(--text-muted)]">DEMO ACCOUNTS (password: demo1234)</p>
+            <div className="space-y-2.5">
               {demoAccounts.map((acc) => (
                 <button
                   key={acc.email}
                   type="button"
                   onClick={() => { setEmail(acc.email); setPassword("demo1234"); }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-sm transition-all"
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm transition-all"
                   style={{
                     background: email === acc.email ? "rgba(59,130,246,0.1)" : "var(--bg-elevated)",
                     border: `1px solid ${email === acc.email ? "rgba(59,130,246,0.3)" : "var(--border)"}`,

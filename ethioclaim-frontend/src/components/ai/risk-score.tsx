@@ -3,10 +3,10 @@
 import type { RiskAssessment, RiskLevel } from "@/types";
 
 const RISK_CONFIG: Record<RiskLevel, { color: string; bg: string; border: string; glow: string; label: string }> = {
-  LOW:      { color: "#10b981", bg: "rgba(16,185,129,0.08)",   border: "rgba(16,185,129,0.25)",  glow: "rgba(16,185,129,0.15)",  label: "Low Risk" },
-  MEDIUM:   { color: "#f59e0b", bg: "rgba(245,158,11,0.08)",   border: "rgba(245,158,11,0.25)",  glow: "rgba(245,158,11,0.15)",  label: "Medium Risk" },
-  HIGH:     { color: "#f97316", bg: "rgba(249,115,22,0.08)",   border: "rgba(249,115,22,0.25)",  glow: "rgba(249,115,22,0.15)",  label: "High Risk" },
-  CRITICAL: { color: "#a855f7", bg: "rgba(168,85,247,0.08)",   border: "rgba(168,85,247,0.25)",  glow: "rgba(168,85,247,0.15)",  label: "Critical Risk" },
+  LOW:      { color: "#30D158", bg: "rgba(48,209,88,0.1)",   border: "rgba(48,209,88,0.3)",   glow: "rgba(48,209,88,0.18)",   label: "Low Fraud Risk" },
+  MEDIUM:   { color: "#FF9F0A", bg: "rgba(255,159,10,0.1)",  border: "rgba(255,159,10,0.3)",  glow: "rgba(255,159,10,0.18)",  label: "Moderate Risk" },
+  HIGH:     { color: "#FF453A", bg: "rgba(255,69,58,0.1)",   border: "rgba(255,69,58,0.3)",   glow: "rgba(255,69,58,0.18)",   label: "Elevated Risk" },
+  CRITICAL: { color: "#BF5AF2", bg: "rgba(191,90,242,0.1)",  border: "rgba(191,90,242,0.3)",  glow: "rgba(191,90,242,0.18)",  label: "Critical Risk Flag" },
 };
 
 export function RiskScore({ assessment }: { assessment: RiskAssessment }) {
@@ -16,17 +16,32 @@ export function RiskScore({ assessment }: { assessment: RiskAssessment }) {
   const offset = circumference - (pct / 100) * circumference;
 
   return (
-    <div className="card p-5" style={{ border: `1px solid ${conf.border}`, boxShadow: `0 4px 24px ${conf.glow}` }}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-semibold">AI Risk Assessment</h3>
-        <span className="text-xs" style={{ color: "var(--text-muted)" }}>v{assessment.modelVersion.split("-").slice(-1)}</span>
+    <div 
+      className="card apple-glass p-6" 
+      style={{ 
+        border: `1px solid ${conf.border}`, 
+        boxShadow: `inset 0 1px 0 0 rgba(255, 255, 255, 0.12), 0 8px 32px ${conf.glow}` 
+      }}
+    >
+      <div className="flex items-center justify-between mb-5 gap-4">
+        <div>
+          <h3 className="text-sm sm:text-base font-bold text-white tracking-[-0.015em] leading-snug mb-1">
+            AI Fraud Risk Assessment
+          </h3>
+          <p className="text-xs text-[var(--text-muted)] font-normal leading-relaxed">
+            Ensemble scoring across behavioral, claim & damage features
+          </p>
+        </div>
+        <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-white/10 text-[var(--text-secondary)] border border-white/10 flex-shrink-0">
+          v{assessment.modelVersion.split("-").slice(-1)}
+        </span>
       </div>
 
-      {/* Circular progress */}
-      <div className="flex items-center gap-6 mb-4">
+      {/* Circular Progress Gauge with Apple Spring Ease */}
+      <div className="flex items-center gap-6 mb-5">
         <div className="relative w-28 h-28 flex-shrink-0">
           <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="var(--bg-elevated)" strokeWidth="8" />
+            <circle cx="50" cy="50" r="45" fill="none" stroke="rgba(255, 255, 255, 0.08)" strokeWidth="8" />
             <circle
               cx="50" cy="50" r="45"
               fill="none" stroke={conf.color}
@@ -34,44 +49,48 @@ export function RiskScore({ assessment }: { assessment: RiskAssessment }) {
               strokeDasharray={circumference}
               strokeDashoffset={offset}
               strokeLinecap="round"
-              style={{ transition: "stroke-dashoffset 1s ease", filter: `drop-shadow(0 0 6px ${conf.color})` }}
+              style={{ 
+                transition: "stroke-dashoffset 1.2s var(--spring-crit)", 
+                filter: `drop-shadow(0 0 8px ${conf.color})` 
+              }}
             />
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold" style={{ color: conf.color, fontFamily: "Space Grotesk" }}>
+            <span className="text-3xl font-extrabold tracking-[-0.035em]" style={{ color: conf.color }}>
               {pct}
             </span>
-            <span className="text-xs" style={{ color: "var(--text-muted)" }}>/ 100</span>
+            <span className="text-[11px] font-medium text-[var(--text-muted)]">/ 100</span>
           </div>
         </div>
 
         <div>
-          <div className="text-lg font-bold mb-1" style={{ color: conf.color, fontFamily: "Space Grotesk" }}>
+          <div className="text-lg font-bold tracking-tight mb-1" style={{ color: conf.color }}>
             {conf.label}
           </div>
-          <div className="text-xs" style={{ color: "var(--text-muted)" }}>
-            Triage priority — not a fraud determination
-          </div>
+          <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+            Prioritized automated routing indicator. Not a definitive legal fraud verdict.
+          </p>
         </div>
       </div>
 
-      {/* Reason codes */}
+      {/* Reason Codes Pill List */}
       <div>
-        <div className="text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "var(--text-muted)" }}>
-          Reason Codes
+        <div className="text-[11px] font-bold uppercase tracking-wider mb-3 text-[var(--text-muted)]">
+          Contributing Risk Factors
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-2.5">
           {assessment.reasonCodes.map((rc, i) => (
-            <div key={i} className="flex items-start gap-2 text-sm">
+            <div key={i} className="flex items-start gap-2.5 text-xs p-2.5 rounded-xl bg-white/[0.03] border border-white/5">
               <span className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: conf.color }} />
-              <span style={{ color: "var(--text-secondary)" }}>{rc}</span>
+              <span className="text-[var(--text-secondary)] font-medium leading-relaxed">{rc}</span>
             </div>
           ))}
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t text-xs" style={{ borderColor: "var(--border)", color: "var(--text-muted)" }}>
-        ⚠️ This is an investigation recommendation. Not a fraud determination or final claim decision.
+      <div className="mt-5 pt-3 border-t border-[var(--border)] text-[11px] text-[var(--text-muted)] flex items-center gap-1.5">
+        <span>ℹ️</span>
+        <span>Decision recommendation for insurance examiners according to NBE compliance guidelines.</span>
       </div>
     </div>
   );

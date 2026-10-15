@@ -48,14 +48,14 @@ const kpis = [
 
 export default function AnalyticsPage() {
   return (
-    <div className="space-y-6 animate-fade-in-up">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 animate-fade-in-up">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
         <div>
           <h2 className="text-xl font-bold" style={{ fontFamily: "Space Grotesk" }}>Analytics</h2>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Claims operations and AI performance metrics</p>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>Claims operations and AI performance metrics</p>
         </div>
-        <div className="flex gap-2">
-          <select className="select btn-sm" id="analytics-period" style={{ height: "32px" }}>
+        <div className="flex gap-2.5">
+          <select className="select btn-sm" id="analytics-period" style={{ height: "36px" }}>
             <option>Last 6 months</option>
             <option>Last 3 months</option>
             <option>This year</option>
@@ -70,11 +70,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* KPI row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
         {kpis.map((kpi) => (
-          <div key={kpi.label} className="card p-4 text-center">
-            <div className="text-xl font-bold" style={{ fontFamily: "Space Grotesk" }}>{kpi.value}</div>
-            <div className="text-xs my-1" style={{ color: "var(--text-muted)" }}>{kpi.label}</div>
+          <div key={kpi.label} className="card apple-glass p-4 sm:p-5 text-center flex flex-col gap-1.5 justify-between">
+            <div className="text-xl font-bold leading-tight" style={{ fontFamily: "Space Grotesk" }}>{kpi.value}</div>
+            <div className="text-xs text-[var(--text-muted)] leading-snug">{kpi.label}</div>
             <span className="text-xs font-semibold" style={{ color: kpi.positive ? "#10b981" : "#ef4444" }}>
               {kpi.trend}
             </span>
@@ -83,11 +83,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
         {/* Claims volume */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold mb-1">Claims Volume</h3>
-          <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>Monthly submitted vs resolved</p>
+        <div className="card apple-glass p-5 md:p-6">
+          <h3 className="text-sm font-semibold mb-1 leading-snug">Claims Volume</h3>
+          <p className="text-xs mb-5 text-[var(--text-muted)] leading-relaxed">Monthly submitted vs resolved</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={MOCK_CLAIMS_OVER_TIME} margin={{ left: -20, right: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -102,9 +102,9 @@ export default function AnalyticsPage() {
         </div>
 
         {/* AI accuracy */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold mb-1">AI Module Accuracy</h3>
-          <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>% confidence on reviewed cases</p>
+        <div className="card apple-glass p-5 md:p-6">
+          <h3 className="text-sm font-semibold mb-1 leading-snug">AI Module Accuracy</h3>
+          <p className="text-xs mb-5 text-[var(--text-muted)] leading-relaxed">% confidence on reviewed cases</p>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={aiAccuracyData} margin={{ left: -20, right: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
@@ -121,11 +121,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 md:gap-6">
         {/* Processing time by risk */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold mb-1">Avg Processing Time by Risk Level</h3>
-          <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>Days from submission to resolution</p>
+        <div className="card apple-glass p-5 md:p-6">
+          <h3 className="text-sm font-semibold mb-1 leading-snug">Avg Processing Time by Risk Level</h3>
+          <p className="text-xs mb-5 text-[var(--text-muted)] leading-relaxed">Days from submission to resolution</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={processingTimeData} layout="vertical" margin={{ left: 20, right: 20 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" horizontal={false} />
@@ -138,9 +138,9 @@ export default function AnalyticsPage() {
         </div>
 
         {/* Risk distribution bar */}
-        <div className="card p-6">
-          <h3 className="text-sm font-semibold mb-1">Risk Distribution</h3>
-          <p className="text-xs mb-5" style={{ color: "var(--text-muted)" }}>Open claims by AI risk level</p>
+        <div className="card apple-glass p-5 md:p-6">
+          <h3 className="text-sm font-semibold mb-1 leading-snug">Risk Distribution</h3>
+          <p className="text-xs mb-5 text-[var(--text-muted)] leading-relaxed">Open claims by AI risk level</p>
           <div className="space-y-4">
             {MOCK_RISK_DISTRIBUTION.map((rd) => {
               const total = MOCK_RISK_DISTRIBUTION.reduce((s, r) => s + r.count, 0);

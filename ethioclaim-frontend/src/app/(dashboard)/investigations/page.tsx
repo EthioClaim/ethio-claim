@@ -19,11 +19,11 @@ export default function InvestigationsPage() {
   }, []);
 
   return (
-    <div className="space-y-5 animate-fade-in-up">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-6 animate-fade-in-up">
+      <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
         <div>
           <h2 className="text-xl font-bold" style={{ fontFamily: "Space Grotesk" }}>Investigation Queue</h2>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+          <p className="text-sm mt-0.5" style={{ color: "var(--text-muted)" }}>
             Claims flagged for deeper review based on AI risk scoring
           </p>
         </div>
@@ -37,32 +37,32 @@ export default function InvestigationsPage() {
       </div>
 
       {/* Priority summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
         {[
           { label: "Critical",   count: 17, color: "#a855f7", bg: "rgba(168,85,247,0.08)" },
           { label: "High Risk",  count: 43, color: "#f97316", bg: "rgba(249,115,22,0.08)" },
           { label: "Similarity", count: 12, color: "#f59e0b", bg: "rgba(245,158,11,0.08)" },
           { label: "Inconsistency", count: 8, color: "#ef4444", bg: "rgba(239,68,68,0.08)" },
         ].map((s) => (
-          <div key={s.label} className="card p-4" style={{ border: `1px solid ${s.bg.replace("0.08", "0.2")}`, background: s.bg }}>
+          <div key={s.label} className="card apple-glass p-4 sm:p-5 flex flex-col gap-1.5" style={{ border: `1px solid ${s.bg.replace("0.08", "0.2")}`, background: s.bg }}>
             <div className="text-2xl font-bold" style={{ color: s.color, fontFamily: "Space Grotesk" }}>{s.count}</div>
-            <div className="text-xs mt-1" style={{ color: "var(--text-secondary)" }}>{s.label}</div>
+            <div className="text-xs text-[var(--text-secondary)]">{s.label}</div>
           </div>
         ))}
       </div>
 
       {/* Investigation cards */}
       {loading ? (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-4">
           {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-28 rounded-xl" />)}
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="flex flex-col gap-4">
           {/* Show all claims as investigation items for demo */}
           {[...claims, ...claims.slice(0, 1)].map((claim, i) => (
             <div
               key={`${claim.id}-${i}`}
-              className="card card-hover p-5"
+              className="card apple-glass card-hover p-5 md:p-6"
             >
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="flex-1">
