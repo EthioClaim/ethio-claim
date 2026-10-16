@@ -1,312 +1,618 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { createClaim } from "@/lib/api";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { createClaim, verifyPolicy } from "@/lib/api";
+import { formatDate } from "@/lib/utils";
+import type { PolicyVerificationResult } from "@/types";
 
 const STEPS = [
-  { id: 1, label: "Claimant", desc: "Personal information" },
-  { id: 2, label: "Vehicle",  desc: "Vehicle details" },
-  { id: 3, label: "Incident", desc: "Accident description" },
-  { id: 4, label: "Policy",   desc: "Insurance policy" },
-  { id: 5, label: "Review",   desc: "Confirm & submit" },
+  { id: 1, label: "Policy", desc: "Insurer Policy Number" },
+  { id: 2, label: "Claimant", desc: "Personal Information" },
+  { id: 3, label: "Vehicle", desc: "Vehicle & Registration" },
+  { id: 4, label: "Incident", desc: "Accident Occurrence" },
+  { id: 5, label: "Review", desc: "Adjudication & Submit" },
 ];
 
-type FormData = {
-  claimant: { name: string; phone: string; email: string; idNumber: string };
-  vehicle:  { make: string; model: string; year: string; plate: string; color: string; vin: string };
-  incident: { date: string; location: string; description: string; estimatedAmount: string };
-  policy:   { policyNumber: string; insurer: string; type: string };
-};
-
-const INITIAL: FormData = {
-  claimant: { name: "", phone: "", email: "", idNumber: "" },
-  vehicle:  { make: "", model: "", year: "2023", plate: "", color: "", vin: "" },
-  incident: { date: "", location: "", description: "", estimatedAmount: "" },
-  policy:   { policyNumber: "", insurer: "", type: "Comprehensive" },
-};
-
-function StepIndicator({ current }: { current: number }) {
-  return (
-    <div className="flex items-center gap-0 mb-8">
-      {STEPS.map((step, i) => (
-        <div key={step.id} className="flex items-center flex-1">
-          <div className="flex flex-col items-center gap-1 min-w-0 flex-1">
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
-              style={{
-                background: step.id < current ? "#10b981"
-                  : step.id === current ? "#3b82f6"
-                  : "var(--bg-elevated)",
-                color: step.id <= current ? "#fff" : "var(--text-muted)",
-                border: step.id === current ? "2px solid #93c5fd" : "1px solid var(--border)",
-              }}
-            >
-              {step.id < current ? (
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              ) : step.id}
-            </div>
-            <span className="text-xs hidden sm:block" style={{ color: step.id === current ? "#93c5fd" : "var(--text-muted)" }}>
-              {step.label}
-            </span>
-          </div>
-          {i < STEPS.length - 1 && (
-            <div className="h-px flex-1 mx-2" style={{ background: step.id < current ? "#10b981" : "var(--border)" }} />
-          )}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function Field({ label, id, children }: { label: string; id?: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <label className="label" htmlFor={id}>{label}</label>
-      {children}
-    </div>
-  );
-}
-
-export default function NewClaimPage() {
+function NewClaimForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormData>(INITIAL);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
-  const [newClaimNumber, setNewClaimNumber] = useState("");
+  const [error, setError] = useState("");
+  const [createdClaimId, setCreatedClaimId] = useState<string | null>(null);
+  const [createdClaimNumber, setCreatedClaimNumber] = useState<string | null>(null);
 
-  const update = (section: keyof FormData, field: string, value: string) => {
-    setForm((f) => ({ ...f, [section]: { ...f[section], [field]: value } }));
-  };
+  // Form State
+  const [policyNumber, setPolicyNumber] = useState(searchParams.get("policyNumber") || "");
+  const [policyCheckLoading, setPolicyCheckLoading] = useState(false);
+  const [policyResult, setPolicyResult] = useState<PolicyVerificationResult | null>(null);
 
-  async function handleSubmit() {
-    setSubmitting(true);
-    const result = await createClaim({
-      claimant: { id: "new", ...form.claimant },
-      vehicle:  { id: "new", ...form.vehicle, year: parseInt(form.vehicle.year) },
-      policy:   { id: "new", ...form.policy, startDate: "", endDate: "", status: "ACTIVE" as const },
-      incidentDate: form.incident.date,
-      accidentDescription: form.incident.description,
-      estimatedAmount: parseFloat(form.incident.estimatedAmount) || 0,
-    });
-    setNewClaimNumber(result.claimNumber);
-    setSubmitting(false);
-    setSubmitted(true);
+  const [claimant, setClaimant] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    idNumber: "",
+  });
+
+  const [vehicle, setVehicle] = useState({
+    make: "",
+    model: "",
+    year: "2024",
+    plate: "",
+    color: "",
+    vin: "",
+  });
+
+  const [incident, setIncident] = useState({
+    date: new Date().toISOString().split("T")[0],
+    location: "Addis Ababa",
+    description: "",
+    estimatedAmount: "50000",
+  });
+
+  useEffect(() => {
+    const p = searchParams.get("policyNumber");
+    if (p) {
+      setPolicyNumber(p);
+      handleVerifyPolicy(p);
+    }
+  }, [searchParams]);
+
+  async function handleVerifyPolicy(num?: string) {
+    const val = (num || policyNumber).trim();
+    if (!val) return;
+    setPolicyCheckLoading(true);
+    setError("");
+    try {
+      const res = await verifyPolicy(val);
+      setPolicyResult(res);
+    } catch {
+      setPolicyResult({ found: false, status: "NOT_FOUND" });
+    } finally {
+      setPolicyCheckLoading(false);
+    }
   }
 
-  if (submitted) {
+  async function handleSubmit() {
+    setError("");
+    if (!policyNumber.trim()) {
+      setError("Policy Number is required");
+      setStep(1);
+      return;
+    }
+    if (!claimant.name || !claimant.phone) {
+      setError("Claimant Name and Phone Number are required");
+      setStep(2);
+      return;
+    }
+    if (!vehicle.make || !vehicle.model || !vehicle.plate) {
+      setError("Vehicle Make, Model, and License Plate are required");
+      setStep(3);
+      return;
+    }
+    if (!incident.date || !incident.description) {
+      setError("Incident Date and Description are required");
+      setStep(4);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const claim = await createClaim({
+        policyNumber: policyNumber.trim().toUpperCase(),
+        claimant: {
+          name: claimant.name.trim(),
+          phone: claimant.phone.trim(),
+          email: claimant.email.trim() || undefined,
+          idNumber: claimant.idNumber.trim() || undefined,
+        },
+        vehicle: {
+          make: vehicle.make.trim(),
+          model: vehicle.model.trim(),
+          year: parseInt(vehicle.year) || 2024,
+          plate: vehicle.plate.trim().toUpperCase(),
+          color: vehicle.color.trim() || undefined,
+          vin: vehicle.vin.trim().toUpperCase() || undefined,
+        },
+        incident: {
+          date: incident.date,
+          location: incident.location.trim() || undefined,
+          description: incident.description.trim(),
+          estimatedAmount: parseFloat(incident.estimatedAmount) || 0,
+        },
+      });
+
+      setCreatedClaimId(claim.id);
+      setCreatedClaimNumber(claim.claimNumber || claim.id);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to create claim");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (createdClaimId) {
     return (
-      <div className="max-w-xl mx-auto text-center py-16 animate-fade-in-up">
-        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-          style={{ background: "rgba(16,185,129,0.1)", border: "2px solid #10b981" }}>
-          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="#10b981">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+      <div className="max-w-xl mx-auto text-center py-12 space-y-6 animate-fade-in-up">
+        <div className="w-16 h-16 rounded-full bg-[#30D158]/20 border border-[#30D158]/40 flex items-center justify-center mx-auto text-[#30D158]">
+          <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-2xl font-bold mb-2" style={{ fontFamily: "Space Grotesk" }}>Claim Submitted!</h2>
-        <p className="text-sm mb-1" style={{ color: "var(--text-muted)" }}>Your claim has been created successfully.</p>
-        <p className="text-lg font-mono font-bold mb-6" style={{ color: "#93c5fd" }}>{newClaimNumber}</p>
-        <p className="text-sm mb-8" style={{ color: "var(--text-muted)" }}>
-          Next step: upload evidence (photos and documents) to continue AI processing.
-        </p>
-        <div className="flex gap-3 justify-center">
-          <button onClick={() => { setForm(INITIAL); setStep(1); setSubmitted(false); }} className="btn btn-secondary">
-            Submit Another
-          </button>
-          <button onClick={() => router.push("/claims")} className="btn btn-primary">
-            View All Claims →
-          </button>
+
+        <div>
+          <h2 className="text-2xl font-extrabold text-white tracking-tight">Claim Registered Successfully</h2>
+          <p className="text-xs text-[var(--text-muted)] mt-1">Claim Record ID in Adjudication Workflow</p>
+          <p className="text-xl font-mono font-bold text-[#64D2FF] mt-2">{createdClaimNumber}</p>
+        </div>
+
+        <div className="card apple-glass p-6 text-left space-y-3 text-xs">
+          <div className="flex justify-between py-1 border-b border-white/5">
+            <span className="text-[var(--text-muted)]">Insured Claimant</span>
+            <span className="font-semibold text-white">{claimant.name}</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-white/5">
+            <span className="text-[var(--text-muted)]">Insured Vehicle</span>
+            <span className="font-semibold text-white">{vehicle.make} {vehicle.model} ({vehicle.plate})</span>
+          </div>
+          <div className="flex justify-between py-1 border-b border-white/5">
+            <span className="text-[var(--text-muted)]">Verified Policy</span>
+            <span className="font-mono text-white">{policyNumber.toUpperCase()}</span>
+          </div>
+          <div className="flex justify-between py-1">
+            <span className="text-[var(--text-muted)]">Claim Status</span>
+            <span className="badge text-[10px] bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/30">
+              SUBMITTED
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+          <Link
+            href={`/claims/${createdClaimId}/evidence`}
+            className="btn btn-primary py-3 px-6 shadow-sm flex items-center justify-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <span>Upload Photographic Evidence Now</span>
+          </Link>
+          <Link
+            href={`/claims/${createdClaimId}`}
+            className="btn btn-secondary py-3 px-5 flex items-center justify-center"
+          >
+            View Claim Details
+          </Link>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <div className="mb-6">
-        <h2 className="text-xl font-bold" style={{ fontFamily: "Space Grotesk" }}>Submit New Claim</h2>
-        <p className="text-sm" style={{ color: "var(--text-muted)" }}>Step {step} of {STEPS.length} — {STEPS[step - 1].desc}</p>
+    <div className="max-w-2xl mx-auto space-y-6">
+      {/* Header */}
+      <div>
+        <nav className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)] mb-2">
+          <Link href="/claims" className="hover:text-white transition-colors">Claims</Link>
+          <span className="text-white/20">/</span>
+          <span className="text-white">New Intake</span>
+        </nav>
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
+          Motor Claim Intake
+        </h2>
+        <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
+          Step {step} of {STEPS.length} — {STEPS[step - 1].desc}
+        </p>
       </div>
 
-      <StepIndicator current={step} />
+      {/* Steps Pill Indicator */}
+      <div className="flex items-center justify-between gap-1 overflow-x-auto pb-2">
+        {STEPS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => s.id < step && setStep(s.id)}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+              step === s.id
+                ? "bg-[#0A84FF] text-white shadow-sm"
+                : s.id < step
+                ? "bg-[#30D158]/20 text-[#30D158] hover:bg-[#30D158]/30"
+                : "bg-white/5 text-[var(--text-muted)] opacity-60"
+            }`}
+          >
+            <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30">
+              {s.id < step ? "✓" : s.id}
+            </span>
+            <span className="hidden sm:inline">{s.label}</span>
+          </button>
+        ))}
+      </div>
 
-      <div className="card apple-glass p-6 md:p-8 animate-fade-in-up">
-        {/* Step 1: Claimant */}
+      {error && (
+        <div className="p-4 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center gap-2.5">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{error}</span>
+        </div>
+      )}
+
+      {/* Card Form */}
+      <div className="card apple-glass p-6 md:p-8 space-y-6">
+        {/* Step 1: Policy */}
         {step === 1 && (
-          <div className="flex flex-col gap-5">
-            <h3 className="text-base font-semibold mb-1">Claimant Information</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Full Name *" id="claimant-name">
-                <input id="claimant-name" className="input" value={form.claimant.name} onChange={(e) => update("claimant", "name", e.target.value)} placeholder="Tesfaye Alemu" />
-              </Field>
-              <Field label="National ID *" id="claimant-id">
-                <input id="claimant-id" className="input" value={form.claimant.idNumber} onChange={(e) => update("claimant", "idNumber", e.target.value)} placeholder="ET-ID-112233" />
-              </Field>
-              <Field label="Phone Number *" id="claimant-phone">
-                <input id="claimant-phone" className="input" value={form.claimant.phone} onChange={(e) => update("claimant", "phone", e.target.value)} placeholder="+251 9XX XXX XXXX" />
-              </Field>
-              <Field label="Email Address" id="claimant-email">
-                <input id="claimant-email" type="email" className="input" value={form.claimant.email} onChange={(e) => update("claimant", "email", e.target.value)} placeholder="name@email.com" />
-              </Field>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-white">Policy Number Lookup</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Exact lookup in insurer registry. Normalizes whitespace and casing.
+              </p>
             </div>
+
+            <div className="space-y-2">
+              <label htmlFor="intake-policy-number" className="label text-xs uppercase text-[var(--text-muted)] font-semibold">
+                Policy Number *
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="intake-policy-number"
+                  type="text"
+                  placeholder="e.g. POL-2026-001"
+                  className="input uppercase font-mono text-sm"
+                  value={policyNumber}
+                  onChange={(e) => {
+                    setPolicyNumber(e.target.value);
+                    setPolicyResult(null);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => handleVerifyPolicy()}
+                  disabled={policyCheckLoading || !policyNumber.trim()}
+                  className="btn btn-secondary px-4 text-xs font-semibold flex items-center gap-1.5"
+                >
+                  {policyCheckLoading ? "Checking…" : "Verify"}
+                </button>
+              </div>
+            </div>
+
+            {policyResult && (
+              <div className="pt-2">
+                {policyResult.found ? (
+                  <div className="p-3.5 rounded-xl bg-[#30D158]/10 border border-[#30D158]/30 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2 text-[#30D158] font-semibold">
+                      <span>✓ Policy Verified Active</span>
+                      {policyResult.validTo && (
+                        <span className="text-[var(--text-muted)] font-normal">
+                          (Expires {formatDate(policyResult.validTo)})
+                        </span>
+                      )}
+                    </div>
+                    <span className="badge text-[10px] bg-[#30D158]/20 text-[#30D158] border border-[#30D158]/40">
+                      {policyResult.status}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="p-3.5 rounded-xl bg-[#FF9F0A]/10 border border-[#FF9F0A]/30 text-xs text-[#FFD60A]">
+                    Policy not found in registry. You may still proceed with intake as Policy Unverified.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
-        {/* Step 2: Vehicle */}
+        {/* Step 2: Claimant */}
         {step === 2 && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold mb-4">Vehicle Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Make *" id="vehicle-make">
-                <input id="vehicle-make" className="input" value={form.vehicle.make} onChange={(e) => update("vehicle", "make", e.target.value)} placeholder="Toyota" />
-              </Field>
-              <Field label="Model *" id="vehicle-model">
-                <input id="vehicle-model" className="input" value={form.vehicle.model} onChange={(e) => update("vehicle", "model", e.target.value)} placeholder="Corolla" />
-              </Field>
-              <Field label="Year *" id="vehicle-year">
-                <input id="vehicle-year" type="number" className="input" value={form.vehicle.year} onChange={(e) => update("vehicle", "year", e.target.value)} min="2000" max="2027" />
-              </Field>
-              <Field label="Color" id="vehicle-color">
-                <input id="vehicle-color" className="input" value={form.vehicle.color} onChange={(e) => update("vehicle", "color", e.target.value)} placeholder="White" />
-              </Field>
-              <Field label="License Plate *" id="vehicle-plate">
-                <input id="vehicle-plate" className="input" value={form.vehicle.plate} onChange={(e) => update("vehicle", "plate", e.target.value)} placeholder="AA-12345-A" />
-              </Field>
-              <Field label="VIN (optional)" id="vehicle-vin">
-                <input id="vehicle-vin" className="input" value={form.vehicle.vin} onChange={(e) => update("vehicle", "vin", e.target.value)} placeholder="1HGBH41JXMN109186" />
-              </Field>
+            <div>
+              <h3 className="text-base font-bold text-white">Insured Claimant Details</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Primary party filing the claim
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="claimant-name" className="label text-xs uppercase text-[var(--text-muted)]">Full Name *</label>
+                <input
+                  id="claimant-name"
+                  type="text"
+                  placeholder="e.g. Abebe Bikila"
+                  className="input text-xs"
+                  value={claimant.name}
+                  onChange={(e) => setClaimant({ ...claimant, name: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="claimant-phone" className="label text-xs uppercase text-[var(--text-muted)]">Phone Number *</label>
+                <input
+                  id="claimant-phone"
+                  type="tel"
+                  placeholder="e.g. +251 911 234567"
+                  className="input text-xs"
+                  value={claimant.phone}
+                  onChange={(e) => setClaimant({ ...claimant, phone: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="claimant-id" className="label text-xs uppercase text-[var(--text-muted)]">National ID / Kebele ID</label>
+                <input
+                  id="claimant-id"
+                  type="text"
+                  placeholder="e.g. ET-ID-88492"
+                  className="input text-xs"
+                  value={claimant.idNumber}
+                  onChange={(e) => setClaimant({ ...claimant, idNumber: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="claimant-email" className="label text-xs uppercase text-[var(--text-muted)]">Email (Optional)</label>
+                <input
+                  id="claimant-email"
+                  type="email"
+                  placeholder="e.g. claimant@example.com"
+                  className="input text-xs"
+                  value={claimant.email}
+                  onChange={(e) => setClaimant({ ...claimant, email: e.target.value })}
+                />
+              </div>
             </div>
           </div>
         )}
 
-        {/* Step 3: Incident */}
+        {/* Step 3: Vehicle */}
         {step === 3 && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold mb-4">Incident Details</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Incident Date *" id="incident-date">
-                <input id="incident-date" type="date" className="input" value={form.incident.date} onChange={(e) => update("incident", "date", e.target.value)} />
-              </Field>
-              <Field label="Estimated Claim Amount (ETB) *" id="incident-amount">
-                <input id="incident-amount" type="number" className="input" value={form.incident.estimatedAmount} onChange={(e) => update("incident", "estimatedAmount", e.target.value)} placeholder="85000" />
-              </Field>
+            <div>
+              <h3 className="text-base font-bold text-white">Insured Vehicle Specifications</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Vehicle registration details
+              </p>
             </div>
-            <Field label="Incident Location" id="incident-location">
-              <input id="incident-location" className="input" value={form.incident.location} onChange={(e) => update("incident", "location", e.target.value)} placeholder="Bole Road, Addis Ababa" />
-            </Field>
-            <Field label="Accident Description *" id="incident-description">
-              <textarea
-                id="incident-description"
-                className="input"
-                rows={5}
-                value={form.incident.description}
-                onChange={(e) => update("incident", "description", e.target.value)}
-                placeholder="Describe how the accident occurred, what was damaged, and any other relevant information…"
-                style={{ resize: "vertical" }}
-              />
-            </Field>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="vehicle-make" className="label text-xs uppercase text-[var(--text-muted)]">Make *</label>
+                <input
+                  id="vehicle-make"
+                  type="text"
+                  placeholder="e.g. Toyota"
+                  className="input text-xs"
+                  value={vehicle.make}
+                  onChange={(e) => setVehicle({ ...vehicle, make: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-model" className="label text-xs uppercase text-[var(--text-muted)]">Model *</label>
+                <input
+                  id="vehicle-model"
+                  type="text"
+                  placeholder="e.g. Corolla"
+                  className="input text-xs"
+                  value={vehicle.model}
+                  onChange={(e) => setVehicle({ ...vehicle, model: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-plate" className="label text-xs uppercase text-[var(--text-muted)]">License Plate Number *</label>
+                <input
+                  id="vehicle-plate"
+                  type="text"
+                  placeholder="e.g. 2-AA-B12345"
+                  className="input text-xs font-mono uppercase"
+                  value={vehicle.plate}
+                  onChange={(e) => setVehicle({ ...vehicle, plate: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-year" className="label text-xs uppercase text-[var(--text-muted)]">Model Year</label>
+                <input
+                  id="vehicle-year"
+                  type="number"
+                  placeholder="2024"
+                  className="input text-xs"
+                  value={vehicle.year}
+                  onChange={(e) => setVehicle({ ...vehicle, year: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-color" className="label text-xs uppercase text-[var(--text-muted)]">Body Color</label>
+                <input
+                  id="vehicle-color"
+                  type="text"
+                  placeholder="e.g. Silver Metallic"
+                  className="input text-xs"
+                  value={vehicle.color}
+                  onChange={(e) => setVehicle({ ...vehicle, color: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="vehicle-vin" className="label text-xs uppercase text-[var(--text-muted)]">VIN / Chassis (Optional)</label>
+                <input
+                  id="vehicle-vin"
+                  type="text"
+                  placeholder="17-character VIN"
+                  className="input text-xs font-mono uppercase"
+                  value={vehicle.vin}
+                  onChange={(e) => setVehicle({ ...vehicle, vin: e.target.value })}
+                />
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Step 4: Policy */}
+        {/* Step 4: Incident */}
         {step === 4 && (
           <div className="space-y-4">
-            <h3 className="text-base font-semibold mb-4">Insurance Policy</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <Field label="Policy Number *" id="policy-number">
-                <input id="policy-number" className="input" value={form.policy.policyNumber} onChange={(e) => update("policy", "policyNumber", e.target.value)} placeholder="POL-2025-88421" />
-              </Field>
-              <Field label="Insurer *" id="policy-insurer">
-                <input id="policy-insurer" className="input" value={form.policy.insurer} onChange={(e) => update("policy", "insurer", e.target.value)} placeholder="Awash Insurance" />
-              </Field>
-              <Field label="Policy Type" id="policy-type">
-                <select id="policy-type" className="select w-full" value={form.policy.type} onChange={(e) => update("policy", "type", e.target.value)}>
-                  <option>Comprehensive</option>
-                  <option>Third Party</option>
-                  <option>Third Party+</option>
-                </select>
-              </Field>
-            </div>
-            <div className="rounded-lg p-4 mt-2" style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.2)" }}>
-              <p className="text-sm" style={{ color: "#93c5fd" }}>
-                💡 Policy status will be automatically verified against the insurer database after submission.
+            <div>
+              <h3 className="text-base font-bold text-white">Incident Details</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Collision date, location, and occurrence description
               </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label htmlFor="incident-date" className="label text-xs uppercase text-[var(--text-muted)]">Incident Date *</label>
+                <input
+                  id="incident-date"
+                  type="date"
+                  className="input text-xs"
+                  value={incident.date}
+                  onChange={(e) => setIncident({ ...incident, date: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label htmlFor="incident-location" className="label text-xs uppercase text-[var(--text-muted)]">Location</label>
+                <input
+                  id="incident-location"
+                  type="text"
+                  placeholder="e.g. Bole Medhanialem, Addis Ababa"
+                  className="input text-xs"
+                  value={incident.location}
+                  onChange={(e) => setIncident({ ...incident, location: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="incident-amount" className="label text-xs uppercase text-[var(--text-muted)]">Initial Claimed Amount (ETB)</label>
+              <input
+                id="incident-amount"
+                type="number"
+                placeholder="e.g. 50000"
+                className="input text-xs font-mono"
+                value={incident.estimatedAmount}
+                onChange={(e) => setIncident({ ...incident, estimatedAmount: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="incident-description" className="label text-xs uppercase text-[var(--text-muted)]">Collision Occurrence Description *</label>
+              <textarea
+                id="incident-description"
+                rows={4}
+                placeholder="Describe how the accident happened, damages observed, and any other vehicles involved…"
+                className="input text-xs py-2.5 leading-relaxed"
+                value={incident.description}
+                onChange={(e) => setIncident({ ...incident, description: e.target.value })}
+              />
             </div>
           </div>
         )}
 
         {/* Step 5: Review */}
         {step === 5 && (
-          <div className="space-y-5">
-            <h3 className="text-base font-semibold mb-4">Review & Submit</h3>
-            {[
-              { label: "Claimant", data: [["Name", form.claimant.name], ["Phone", form.claimant.phone], ["ID", form.claimant.idNumber]] },
-              { label: "Vehicle",  data: [["Make/Model", `${form.vehicle.make} ${form.vehicle.model}`], ["Year", form.vehicle.year], ["Plate", form.vehicle.plate]] },
-              { label: "Incident", data: [["Date", form.incident.date], ["Amount", `${parseInt(form.incident.estimatedAmount || "0").toLocaleString()} ETB`], ["Location", form.incident.location]] },
-              { label: "Policy",   data: [["Number", form.policy.policyNumber], ["Insurer", form.policy.insurer], ["Type", form.policy.type]] },
-            ].map((section) => (
-              <div key={section.label} className="rounded-lg overflow-hidden" style={{ border: "1px solid var(--border)" }}>
-                <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wider" style={{ background: "var(--bg-elevated)", color: "var(--text-muted)" }}>
-                  {section.label}
-                </div>
-                <div className="grid grid-cols-3 gap-px" style={{ background: "var(--border)" }}>
-                  {section.data.map(([k, v]) => (
-                    <div key={k} className="px-4 py-3" style={{ background: "var(--bg-card)" }}>
-                      <div className="text-xs mb-1" style={{ color: "var(--text-muted)" }}>{k}</div>
-                      <div className="text-sm font-medium">{v || <span style={{ color: "var(--text-muted)" }}>—</span>}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
-            <div className="p-4 rounded-lg" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
-              <p className="text-sm" style={{ color: "#fcd34d" }}>
-                ⚠️ After submission, you will be prompted to upload evidence (photos and documents). AI analysis will begin once all required evidence is uploaded.
+          <div className="space-y-4 text-xs">
+            <div>
+              <h3 className="text-base font-bold text-white">Review Claim Before Submission</h3>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Ensure details are accurate. Evidence photos are uploaded on the next step.
               </p>
+            </div>
+
+            <div className="divide-y divide-white/5 rounded-xl bg-white/[0.02] border border-white/5 p-4 space-y-3">
+              <div className="flex justify-between py-1">
+                <span className="text-[var(--text-muted)]">Policy Number</span>
+                <span className="font-mono font-semibold text-white">{policyNumber.toUpperCase()}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-[var(--text-muted)]">Claimant</span>
+                <span className="font-semibold text-white">{claimant.name} ({claimant.phone})</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-[var(--text-muted)]">Vehicle</span>
+                <span className="font-semibold text-white">{vehicle.year} {vehicle.make} {vehicle.model} — {vehicle.plate}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-[var(--text-muted)]">Incident Date</span>
+                <span className="text-white">{formatDate(incident.date)}</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-[var(--text-muted)]">Initial Claim Estimate</span>
+                <span className="font-mono font-semibold text-[#64D2FF]">
+                  {parseFloat(incident.estimatedAmount || "0").toLocaleString()} ETB
+                </span>
+              </div>
+              <div className="pt-2">
+                <span className="text-[var(--text-muted)] block mb-1">Occurrence Narrative:</span>
+                <p className="text-[var(--text-secondary)] italic leading-relaxed">
+                  &ldquo;{incident.description}&rdquo;
+                </p>
+              </div>
             </div>
           </div>
         )}
-      </div>
 
-      {/* Navigation */}
-      <div className="flex justify-between mt-5">
-        <button
-          className="btn btn-secondary"
-          onClick={() => step > 1 ? setStep(step - 1) : router.back()}
-          id="claim-form-back"
-        >
-          ← {step === 1 ? "Cancel" : "Back"}
-        </button>
-        {step < STEPS.length ? (
-          <button
-            className="btn btn-primary"
-            onClick={() => setStep(step + 1)}
-            id="claim-form-next"
-          >
-            Next →
-          </button>
-        ) : (
-          <button
-            className="btn btn-primary"
-            onClick={handleSubmit}
-            disabled={submitting}
-            id="claim-form-submit"
-          >
-            {submitting ? (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                Submitting…
-              </span>
-            ) : "Submit Claim ✓"}
-          </button>
-        )}
+        {/* Controls */}
+        <div className="flex items-center justify-between pt-4 border-t border-[var(--border)]">
+          {step > 1 ? (
+            <button
+              type="button"
+              onClick={() => setStep(step - 1)}
+              className="btn btn-secondary text-xs font-semibold px-4"
+            >
+              ← Back
+            </button>
+          ) : (
+            <div />
+          )}
+
+          {step < STEPS.length ? (
+            <button
+              type="button"
+              onClick={() => {
+                setError("");
+                setStep(step + 1);
+              }}
+              className="btn btn-primary text-xs font-semibold px-5"
+            >
+              Continue →
+            </button>
+          ) : (
+            <button
+              id="submit-claim-btn"
+              type="button"
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="btn btn-primary text-xs font-semibold px-6 shadow-sm flex items-center gap-2"
+            >
+              {submitting ? (
+                <>
+                  <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  <span>Saving Claim…</span>
+                </>
+              ) : (
+                <span>Submit Claim</span>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function NewClaimPage() {
+  return (
+    <Suspense fallback={<div className="skeleton h-96 w-full rounded-2xl" />}>
+      <NewClaimForm />
+    </Suspense>
   );
 }
