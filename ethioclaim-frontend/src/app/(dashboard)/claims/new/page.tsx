@@ -31,7 +31,7 @@ function NewClaimForm() {
   const [policyResult, setPolicyResult] = useState<PolicyVerificationResult | null>(null);
 
   const [claimant, setClaimant] = useState({
-    name: "",
+    fullName: "",
     phone: "",
     email: "",
     idNumber: "",
@@ -83,7 +83,7 @@ function NewClaimForm() {
       setStep(1);
       return;
     }
-    if (!claimant.name || !claimant.phone) {
+    if (!claimant.fullName || !claimant.phone) {
       setError("Claimant Name and Phone Number are required");
       setStep(2);
       return;
@@ -104,7 +104,7 @@ function NewClaimForm() {
       const claim = await createClaim({
         policyNumber: policyNumber.trim().toUpperCase(),
         claimant: {
-          name: claimant.name.trim(),
+          fullName: claimant.fullName.trim(),
           phone: claimant.phone.trim(),
           email: claimant.email.trim() || undefined,
           idNumber: claimant.idNumber.trim() || undefined,
@@ -152,7 +152,7 @@ function NewClaimForm() {
         <div className="card apple-glass p-6 text-left space-y-3 text-xs">
           <div className="flex justify-between py-1 border-b border-white/5">
             <span className="text-[var(--text-muted)]">Insured Claimant</span>
-            <span className="font-semibold text-white">{claimant.name}</span>
+            <span className="font-semibold text-white">{claimant.fullName}</span>
           </div>
           <div className="flex justify-between py-1 border-b border-white/5">
             <span className="text-[var(--text-muted)]">Insured Vehicle</span>
@@ -215,13 +215,12 @@ function NewClaimForm() {
             key={s.id}
             type="button"
             onClick={() => s.id < step && setStep(s.id)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
-              step === s.id
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${step === s.id
                 ? "bg-[#0A84FF] text-white shadow-sm"
                 : s.id < step
-                ? "bg-[#30D158]/20 text-[#30D158] hover:bg-[#30D158]/30"
-                : "bg-white/5 text-[var(--text-muted)] opacity-60"
-            }`}
+                  ? "bg-[#30D158]/20 text-[#30D158] hover:bg-[#30D158]/30"
+                  : "bg-white/5 text-[var(--text-muted)] opacity-60"
+              }`}
           >
             <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30">
               {s.id < step ? "✓" : s.id}
@@ -323,8 +322,8 @@ function NewClaimForm() {
                   type="text"
                   placeholder="e.g. Abebe Bikila"
                   className="input text-xs"
-                  value={claimant.name}
-                  onChange={(e) => setClaimant({ ...claimant, name: e.target.value })}
+                  value={claimant.fullName}
+                  onChange={(e) => setClaimant({ ...claimant, fullName: e.target.value })}
                 />
               </div>
 
@@ -531,7 +530,7 @@ function NewClaimForm() {
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-[var(--text-muted)]">Claimant</span>
-                <span className="font-semibold text-white">{claimant.name} ({claimant.phone})</span>
+                <span className="font-semibold text-white">{claimant.fullName} ({claimant.phone})</span>
               </div>
               <div className="flex justify-between py-1">
                 <span className="text-[var(--text-muted)]">Vehicle</span>

@@ -1,8 +1,7 @@
 # IDE / Editor files
 .vscode/
 .idea/
-.agent/
-.agent/rules
+.agents/
 # OS files
 Thumbs.db
 

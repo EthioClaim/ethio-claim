@@ -5,6 +5,8 @@
 
 /.agents/rules
 
+**/dist/
+
 # testing
 /coverage
 

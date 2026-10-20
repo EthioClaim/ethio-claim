@@ -23,6 +23,13 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface RegisterPayload {
+  email: string;
+  username: string;
+  password: string;
+  role: "ADMIN" | "EXAMINER" | "INTAKE_USER";
+}
+
 export interface AuthResponse {
   accessToken?: string;
   token?: string;
@@ -121,7 +128,7 @@ export interface ClaimTimelineEvent {
 
 export interface CreateClaimPayload {
   claimant: {
-    name: string;
+    fullName: string;
     phone: string;
     email?: string;
     idNumber?: string;

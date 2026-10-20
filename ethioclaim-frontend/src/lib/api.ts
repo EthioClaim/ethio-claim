@@ -24,6 +24,7 @@ import type {
   ExaminerDecisionResult,
   HealthResponse,
   LoginPayload,
+  RegisterPayload,
   PaginatedClaimsResponse,
   Policy,
   PolicyVerificationResult,
@@ -203,6 +204,25 @@ export async function login(payloadOrEmail: LoginPayload | string, maybePassword
   };
 
   const { data } = await apiClient.post<AuthResponse>("/auth/login", body);
+  const token = data.accessToken || data.token;
+  if (token && data.user) {
+    setStoredSession(token, data.user);
+  }
+  return data;
+}
+
+/**
+ * User registration: POST /api/v1/auth/register
+ * Body: { email, username, password, role }
+ * Returns 200 { accessToken, user }
+ */
+export async function register(payload: RegisterPayload): Promise<AuthResponse> {
+  const { data } = await apiClient.post<AuthResponse>("/auth/register", {
+    email: payload.email,
+    username: payload.username,
+    password: payload.password,
+    role: payload.role,
+  });
   const token = data.accessToken || data.token;
   if (token && data.user) {
     setStoredSession(token, data.user);
