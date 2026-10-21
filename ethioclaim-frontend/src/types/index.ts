@@ -320,16 +320,20 @@ export interface DashboardSummary {
 
 export interface AdminUser {
   id: string;
+  name?: string;
   email: string;
   username?: string;
   displayName?: string;
   role: UserRole;
-  status: "ACTIVE" | "INACTIVE";
+  status?: "ACTIVE" | "INACTIVE" | string;
+  active?: boolean;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateAdminUserPayload {
   email: string;
+  name?: string;
   username?: string;
   displayName?: string;
   password?: string;
@@ -337,10 +341,13 @@ export interface CreateAdminUserPayload {
 }
 
 export interface UpdateAdminUserPayload {
+  name?: string;
   email?: string;
   displayName?: string;
+  username?: string;
   role?: UserRole;
-  status?: "ACTIVE" | "INACTIVE";
+  status?: "ACTIVE" | "INACTIVE" | string;
+  active?: boolean;
   password?: string;
 }
 

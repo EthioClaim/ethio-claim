@@ -77,7 +77,10 @@ export default function AdminUsersPage() {
     setSubmittingCreate(true);
     setCreateError(null);
     try {
-      await createAdminUser(createForm);
+      await createAdminUser({
+        ...createForm,
+        name: createForm.displayName || createForm.username || createForm.email.split("@")[0],
+      });
       notify("success", `User ${createForm.email} created successfully`);
       setIsCreateOpen(false);
       setCreateForm({
@@ -100,9 +103,9 @@ export default function AdminUsersPage() {
     setEditingUser(u);
     setEditForm({
       email: u.email || "",
-      displayName: u.displayName || u.username || "",
+      displayName: u.displayName || u.name || u.username || "",
       role: u.role || "EXAMINER",
-      status: u.status || "ACTIVE",
+      status: (u.status as any) || (u.active !== false ? "ACTIVE" : "INACTIVE"),
       password: "",
     });
     setEditError(null);
@@ -115,10 +118,12 @@ export default function AdminUsersPage() {
     setEditError(null);
 
     const payload: UpdateAdminUserPayload = {
+      name: editForm.displayName,
       email: editForm.email,
       displayName: editForm.displayName,
       role: editForm.role,
       status: editForm.status,
+      active: editForm.status === "ACTIVE",
     };
     if (editForm.password && editForm.password.trim().length > 0) {
       payload.password = editForm.password;
@@ -139,11 +144,11 @@ export default function AdminUsersPage() {
 
   const filteredUsers = users.filter((u) => {
     const q = search.toLowerCase();
+    const nameStr = (u.displayName || u.name || u.username || "").toLowerCase();
     const matchesSearch =
       !search ||
       u.email.toLowerCase().includes(q) ||
-      (u.displayName && u.displayName.toLowerCase().includes(q)) ||
-      (u.username && u.username.toLowerCase().includes(q));
+      nameStr.includes(q);
     const matchesRole = roleFilter === "ALL" || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -270,18 +275,18 @@ export default function AdminUsersPage() {
               <tbody className="divide-y divide-[var(--border)] font-normal text-[var(--text-secondary)]">
                 {filteredUsers.map((u) => {
                   const roleLabel = ROLE_OPTIONS.find((r) => r.value === u.role)?.label || u.role;
-                  const isActive = u.status === "ACTIVE";
+                  const isActive = u.status === "ACTIVE" || u.active === true || (u.active !== false && u.status !== "INACTIVE");
 
                   return (
                     <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full bg-[#0A84FF]/10 text-[#64D2FF] font-bold flex items-center justify-center uppercase border border-[#0A84FF]/20 flex-shrink-0">
-                            {u.displayName?.[0] || u.username?.[0] || u.email[0]}
+                            {u.displayName?.[0] || u.name?.[0] || u.username?.[0] || u.email[0]}
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-white truncate">
-                              {u.displayName || u.username || "Staff User"}
+                              {u.displayName || u.name || u.username || "Staff User"}
                             </div>
                             <div className="text-[11px] text-[var(--text-muted)] font-mono truncate">
                               {u.email}
@@ -319,7 +324,7 @@ export default function AdminUsersPage() {
                               isActive ? "bg-[#30D158]" : "bg-[#FF453A]"
                             }`}
                           />
-                          {u.status || "ACTIVE"}
+                          {u.status || (u.active !== false ? "ACTIVE" : "INACTIVE")}
                         </span>
                       </td>
 

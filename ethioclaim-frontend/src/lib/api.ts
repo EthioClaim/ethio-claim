@@ -375,8 +375,10 @@ export async function updateClaimStatus(claimId: string, status: ClaimStatus): P
  */
 export async function fetchClaimTimeline(claimId: string): Promise<ClaimTimelineEvent[]> {
   try {
-    const { data } = await apiClient.get<ClaimTimelineEvent[]>(`/claims/${claimId}/timeline`);
-    return Array.isArray(data) ? data : [];
+    const { data } = await apiClient.get<any>(`/claims/${claimId}/timeline`);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+    return [];
   } catch {
     return [];
   }
@@ -428,8 +430,10 @@ export async function uploadClaimEvidence(
  * List evidence metadata for claim: GET /api/v1/claims/:claimId/evidence
  */
 export async function fetchClaimEvidence(claimId: string): Promise<Evidence[]> {
-  const { data } = await apiClient.get<Evidence[]>(`/claims/${claimId}/evidence`);
-  return Array.isArray(data) ? data : [];
+  const { data } = await apiClient.get<any>(`/claims/${claimId}/evidence`);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
 }
 
 /**
@@ -479,8 +483,11 @@ export async function reanalyzeEvidence(evidenceId: string): Promise<{ status: s
  * (Examiner / Admin)
  */
 export async function fetchEvidenceMatches(evidenceId: string): Promise<SimilarityMatch[]> {
-  const { data } = await apiClient.get<SimilarityMatch[]>(`/evidence/${evidenceId}/matches`);
-  return Array.isArray(data) ? data : [];
+  const { data } = await apiClient.get<any>(`/evidence/${evidenceId}/matches`);
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.matches)) return data.matches;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
 }
 
 /**
@@ -576,9 +583,26 @@ export async function fetchDashboardSummary(): Promise<DashboardSummary> {
 /**
  * List staff users: GET /api/v1/admin/users
  */
-export async function fetchAdminUsers(): Promise<AdminUser[]> {
-  const { data } = await apiClient.get<AdminUser[]>("/admin/users");
-  return Array.isArray(data) ? data : [];
+export async function fetchAdminUsers(params?: {
+  page?: number;
+  pageSize?: number;
+  role?: string;
+  active?: boolean;
+}): Promise<AdminUser[]> {
+  try {
+    const { data } = await apiClient.get<any>("/admin/users", { params });
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.items)) return data.items;
+  } catch {
+    try {
+      const { data } = await apiClient.get<any>("/users", { params });
+      if (Array.isArray(data)) return data;
+      if (data && Array.isArray(data.items)) return data.items;
+    } catch {
+      // ignore
+    }
+  }
+  return [];
 }
 
 /**

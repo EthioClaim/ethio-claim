@@ -1056,8 +1056,13 @@ export async function handleMockFallback(req: FallbackRequest): Promise<unknown>
   }
 
   // 26. Admin Users: GET /admin/users
-  if (method === "GET" && path.includes("/admin/users")) {
-    return store.users;
+  if (method === "GET" && (path.includes("/admin/users") || path.endsWith("/users"))) {
+    return {
+      items: store.users,
+      page: 1,
+      pageSize: 50,
+      total: store.users.length,
+    };
   }
 
   // 27. Admin Users: POST /admin/users

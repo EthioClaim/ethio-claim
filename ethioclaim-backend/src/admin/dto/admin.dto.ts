@@ -16,7 +16,16 @@ export enum RoleEnum {
 
 export class CreateUserDto {
   @IsString()
-  name: string;
+  @IsOptional()
+  name?: string;
+
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @IsString()
+  @IsOptional()
+  username?: string;
 
   @IsEmail()
   email: string;
@@ -34,6 +43,14 @@ export class UpdateUserDto {
   @IsOptional()
   name?: string;
 
+  @IsString()
+  @IsOptional()
+  displayName?: string;
+
+  @IsString()
+  @IsOptional()
+  username?: string;
+
   @IsEnum(RoleEnum)
   @IsOptional()
   role?: RoleEnum;
@@ -41,6 +58,14 @@ export class UpdateUserDto {
   @IsBoolean()
   @IsOptional()
   active?: boolean;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
 }
 
 export class CreatePolicyDto {

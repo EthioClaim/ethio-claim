@@ -56,7 +56,18 @@ export class AdminService {
     ]);
 
     return {
-      items,
+      items: items.map((u) => ({
+        id: u.id,
+        name: u.name,
+        displayName: u.name,
+        username: u.email.split('@')[0],
+        email: u.email,
+        role: u.role,
+        active: u.active,
+        status: u.active ? 'ACTIVE' : 'INACTIVE',
+        createdAt: u.createdAt,
+        updatedAt: u.updatedAt,
+      })),
       page,
       pageSize,
       total,
@@ -73,10 +84,11 @@ export class AdminService {
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
+    const name = dto.name || dto.displayName || dto.username || dto.email.split('@')[0];
 
     const user = await this.prisma.user.create({
       data: {
-        name: dto.name,
+        name,
         email: dto.email.toLowerCase().trim(),
         role: dto.role,
         passwordHash,
@@ -89,6 +101,7 @@ export class AdminService {
         role: true,
         active: true,
         createdAt: true,
+        updatedAt: true,
       },
     });
 
@@ -101,7 +114,12 @@ export class AdminService {
       },
     });
 
-    return user;
+    return {
+      ...user,
+      displayName: user.name,
+      username: user.email.split('@')[0],
+      status: user.active ? 'ACTIVE' : 'INACTIVE',
+    };
   }
 
   async updateUser(userId: string, dto: UpdateUserDto, adminId: string) {
@@ -114,9 +132,14 @@ export class AdminService {
     }
 
     const updateData: any = {};
-    if (dto.name !== undefined) updateData.name = dto.name;
+    const name = dto.name || dto.displayName || dto.username;
+    if (name !== undefined) updateData.name = name;
     if (dto.role !== undefined) updateData.role = dto.role;
     if (dto.active !== undefined) updateData.active = dto.active;
+    if (dto.status !== undefined) updateData.active = dto.status === 'ACTIVE';
+    if (dto.password && dto.password.trim().length > 0) {
+      updateData.passwordHash = await bcrypt.hash(dto.password, 10);
+    }
 
     const updated = await this.prisma.user.update({
       where: { id: userId },
@@ -127,6 +150,7 @@ export class AdminService {
         email: true,
         role: true,
         active: true,
+        createdAt: true,
         updatedAt: true,
       },
     });
@@ -140,7 +164,12 @@ export class AdminService {
       },
     });
 
-    return updated;
+    return {
+      ...updated,
+      displayName: updated.name,
+      username: updated.email.split('@')[0],
+      status: updated.active ? 'ACTIVE' : 'INACTIVE',
+    };
   }
 
   // ── Policies Management ─────────────────────────────────────────────────────
@@ -331,7 +360,12 @@ export class AdminService {
       throw new NotFoundException(`User with ID ${userId} not found`);
     }
 
-    return user;
+    return {
+      ...user,
+      displayName: user.name,
+      username: user.email.split('@')[0],
+      status: user.active ? 'ACTIVE' : 'INACTIVE',
+    };
   }
 
   async resetPassword(userId: string, newPassword: string, adminId: string) {
