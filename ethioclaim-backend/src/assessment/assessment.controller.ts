@@ -17,13 +17,15 @@ import {
   CreateDecisionDto,
 } from './dto/assessment.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/roles.guard';
 
 @Controller('claims/:claimId')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class AssessmentController {
   constructor(private readonly assessmentService: AssessmentService) {}
 
   @Post('assessment')
+  @Roles('EXAMINER', 'ADMIN')
   @HttpCode(HttpStatus.CREATED)
   create(
     @Param('claimId') claimId: string,
@@ -39,6 +41,7 @@ export class AssessmentController {
   }
 
   @Get('assessment')
+  @Roles('EXAMINER', 'ADMIN', 'INTAKE_USER')
   findByClaim(@Param('claimId') claimId: string, @Req() req: any) {
     return this.assessmentService.findByClaimId(
       claimId,
@@ -48,6 +51,7 @@ export class AssessmentController {
   }
 
   @Patch('assessment')
+  @Roles('EXAMINER', 'ADMIN')
   update(
     @Param('claimId') claimId: string,
     @Body() dto: UpdateAssessmentDto,
@@ -62,6 +66,7 @@ export class AssessmentController {
   }
 
   @Post('decision')
+  @Roles('EXAMINER', 'ADMIN')
   @HttpCode(HttpStatus.CREATED)
   recordDecision(
     @Param('claimId') claimId: string,

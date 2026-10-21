@@ -39,7 +39,7 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:3001/api/v1";
+  "http://localhost:3002/api/v1";
 
 // Create central Axios instance
 export const apiClient: AxiosInstance = axios.create({
@@ -507,8 +507,8 @@ export async function createAssessment(
     payload.estimatedLossEtb !== undefined
       ? payload.estimatedLossEtb
       : payload.estimatedLossAmount !== undefined
-      ? payload.estimatedLossAmount
-      : "0.00";
+        ? payload.estimatedLossAmount
+        : "0.00";
 
   const numAmount = typeof lossValue === "number" ? lossValue : parseFloat(String(lossValue)) || 0;
 
@@ -620,3 +620,153 @@ export async function updateAdminPolicy(policyId: string, payload: UpdatePolicyP
   const { data } = await apiClient.patch<Policy>(`/admin/policies/${policyId}`, payload);
   return data;
 }
+
+/**
+ * Submit draft claim: POST /api/v1/claims/:claimId/submit
+ */
+export async function submitClaim(
+  claimId: string,
+  confirmationNotes?: string
+): Promise<Claim> {
+  const { data } = await apiClient.post<Claim>(`/claims/${claimId}/submit`, {
+    confirmationNotes,
+  });
+  return data;
+}
+
+/**
+ * Assign examiner to claim: PATCH /api/v1/claims/:claimId/assign
+ */
+export async function assignExaminer(
+  claimId: string,
+  examinerId: string,
+  note?: string
+): Promise<any> {
+  const { data } = await apiClient.patch(`/claims/${claimId}/assign`, {
+    examinerId,
+    note,
+  });
+  return data;
+}
+
+/**
+ * Close claim with required reason: POST /api/v1/claims/:claimId/close
+ */
+export async function closeClaim(
+  claimId: string,
+  reason: string,
+  notes?: string
+): Promise<any> {
+  const { data } = await apiClient.post(`/claims/${claimId}/close`, {
+    reason,
+    notes,
+  });
+  return data;
+}
+
+/**
+ * Request additional information/evidence: POST /api/v1/claims/:claimId/request-information
+ */
+export async function requestInformation(
+  claimId: string,
+  message: string,
+  requestedItems?: string[]
+): Promise<any> {
+  const { data } = await apiClient.post(`/claims/${claimId}/request-information`, {
+    message,
+    requestedItems,
+  });
+  return data;
+}
+
+/**
+ * Search/query audit logs: GET /api/v1/admin/audit-log
+ */
+export async function fetchAuditLogs(params?: {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  action?: string;
+  actorId?: string;
+  claimId?: string;
+  from?: string;
+  to?: string;
+}): Promise<{
+  items: Array<{
+    id: string;
+    action: string;
+    summary?: string;
+    details?: any;
+    createdAt: string;
+    actor?: { id: string; name: string; email: string; role: string };
+    claim?: { id: string; claimNumber: string };
+  }>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  const { data } = await apiClient.get("/admin/audit-log", { params });
+  return data;
+}
+
+/**
+ * View analysis operations & pipeline queue: GET /api/v1/admin/operations/analysis
+ */
+export async function fetchAnalysisOperations(params?: {
+  status?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: Array<{
+    id: string;
+    evidenceId: string;
+    status: string;
+    modelName?: string;
+    modelVersion?: string;
+    inferenceMs?: number;
+    errorCode?: string;
+    errorMessage?: string;
+    retriedAt?: string;
+    createdAt: string;
+    evidence?: any;
+  }>;
+  statusCounts: Record<string, number>;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  const { data } = await apiClient.get("/admin/operations/analysis", { params });
+  return data;
+}
+
+/**
+ * Reset user password: POST /api/v1/admin/users/:userId/reset-password
+ */
+export async function resetUserPassword(
+  userId: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  const { data } = await apiClient.post(`/admin/users/${userId}/reset-password`, {
+    newPassword,
+  });
+  return data;
+}
+
+/**
+ * Fetch user details by ID: GET /api/v1/admin/users/:userId
+ */
+export async function fetchUserById(userId: string): Promise<AdminUser> {
+  const { data } = await apiClient.get<AdminUser>(`/admin/users/${userId}`);
+  return data;
+}
+
+/**
+ * Fetch policy details by ID: GET /api/v1/admin/policies/:policyId
+ */
+export async function fetchPolicyById(policyId: string): Promise<Policy> {
+  const { data } = await apiClient.get<Policy>(`/admin/policies/${policyId}`);
+  return data;
+}
+

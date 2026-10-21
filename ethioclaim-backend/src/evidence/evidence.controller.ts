@@ -18,13 +18,15 @@ import { Response } from 'express';
 import { EvidenceService } from './evidence.service';
 import { UploadEvidenceDto, ReanalyzeDto } from './dto/evidence.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard, Roles } from '../auth/roles.guard';
 
 @Controller()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
 export class EvidenceController {
   constructor(private readonly evidenceService: EvidenceService) {}
 
   @Post('claims/:claimId/evidence')
+  @Roles('INTAKE_USER', 'ADMIN')
   @HttpCode(HttpStatus.ACCEPTED)
   @UseInterceptors(FileInterceptor('file'))
   upload(
@@ -78,6 +80,7 @@ export class EvidenceController {
   }
 
   @Delete('evidence/:evidenceId')
+  @Roles('INTAKE_USER', 'ADMIN')
   @HttpCode(HttpStatus.NO_CONTENT)
   async delete(
     @Param('evidenceId') evidenceId: string,
@@ -102,6 +105,7 @@ export class EvidenceController {
   }
 
   @Post('evidence/:evidenceId/reanalyze')
+  @Roles('EXAMINER', 'ADMIN')
   @HttpCode(HttpStatus.ACCEPTED)
   reanalyze(
     @Param('evidenceId') evidenceId: string,
@@ -117,6 +121,7 @@ export class EvidenceController {
   }
 
   @Get('evidence/:evidenceId/matches')
+  @Roles('EXAMINER', 'ADMIN')
   getMatches(@Param('evidenceId') evidenceId: string, @Req() req: any) {
     return this.evidenceService.getMatches(
       evidenceId,

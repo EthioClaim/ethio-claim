@@ -109,3 +109,27 @@ export class RequestEvidenceDto {
   @IsOptional()
   requestedItems?: string[];
 }
+
+export class AssignExaminerDto {
+  @IsString()
+  examinerId: string;
+
+  @IsString()
+  @IsOptional()
+  note?: string;
+}
+
+export class CloseClaimDto {
+  @IsString()
+  reason: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class SubmitClaimDto {
+  @IsString()
+  @IsOptional()
+  confirmationNotes?: string;
+}

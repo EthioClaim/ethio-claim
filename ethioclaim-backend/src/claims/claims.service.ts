@@ -5,7 +5,14 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateClaimDto, UpdateClaimDto, UpdateClaimStatusDto } from './dto/claims.dto';
+import {
+  CreateClaimDto,
+  UpdateClaimDto,
+  UpdateClaimStatusDto,
+  AssignExaminerDto,
+  CloseClaimDto,
+  SubmitClaimDto,
+} from './dto/claims.dto';
 
 // Valid status transitions
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
@@ -23,6 +30,19 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 };
 
 function formatClaim(c: any) {
+  const assignEvent = c.auditEvents?.find((e: any) => e.action === 'EXAMINER_ASSIGNED');
+  const assignedExaminer = assignEvent?.details
+    ? {
+        id: (assignEvent.details as any).examinerId,
+        name: (assignEvent.details as any).examinerName,
+      }
+    : c.assessment?.examiner
+    ? {
+        id: c.assessment.examiner.id,
+        name: c.assessment.examiner.name,
+      }
+    : null;
+
   return {
     id: c.id,
     claimNumber: c.claimNumber,
@@ -55,6 +75,7 @@ function formatClaim(c: any) {
         }
       : null,
     evidenceCount: c._count?.evidence ?? 0,
+    assignedExaminer,
     assessment: c.assessment
       ? {
           id: c.assessment.id,
@@ -63,6 +84,12 @@ function formatClaim(c: any) {
           currency: c.assessment.currency,
           notes: c.assessment.notes,
           examinerId: c.assessment.examinerId,
+          examiner: c.assessment.examiner
+            ? {
+                id: c.assessment.examiner.id,
+                name: c.assessment.examiner.name,
+              }
+            : undefined,
           createdAt: c.assessment.createdAt,
         }
       : null,
@@ -111,21 +138,23 @@ export class ClaimsService {
     const claim = await this.prisma.claim.create({
       data: {
         claimNumber,
-        status: 'SUBMITTED',
+        status: (dto as any).status || (policyVerification === 'VERIFIED' ? 'DRAFT' : 'POLICY_UNVERIFIED'),
         policyVerification,
         policyId,
-        claimantFullName: dto.claimant.fullName,
-        claimantPhone: dto.claimant.phone,
-        claimantEmail: dto.claimant.email,
-        vehiclePlateNumber: dto.vehicle?.plateNumber,
-        vehicleMake: dto.vehicle?.make,
-        vehicleModel: dto.vehicle?.model,
-        vehicleYear: dto.vehicle?.year,
-        vehicleVin: dto.vehicle?.vin,
-        incidentOccurredAt: dto.incident?.occurredAt ? new Date(dto.incident.occurredAt) : undefined,
-        incidentLocation: dto.incident?.location,
-        incidentDescription: dto.incident?.description,
-        incidentType: (dto.incident?.incidentType as any) || 'OTHER',
+        claimantFullName: dto.claimant?.fullName || (dto as any).claimantName || 'Unknown Claimant',
+        claimantPhone: dto.claimant?.phone || (dto as any).claimantPhone || '',
+        claimantEmail: dto.claimant?.email || (dto as any).claimantEmail,
+        vehiclePlateNumber: dto.vehicle?.plateNumber || (dto as any).vehiclePlate || (dto as any).vehicleRegistration,
+        vehicleMake: dto.vehicle?.make || (dto as any).vehicleMake,
+        vehicleModel: dto.vehicle?.model || (dto as any).vehicleModel,
+        vehicleYear: dto.vehicle?.year || (dto as any).vehicleYear,
+        vehicleVin: dto.vehicle?.vin || (dto as any).vehicleVin,
+        incidentOccurredAt: (dto.incident?.occurredAt || (dto as any).incidentDate)
+          ? new Date(dto.incident?.occurredAt || (dto as any).incidentDate)
+          : undefined,
+        incidentLocation: dto.incident?.location || (dto as any).location,
+        incidentDescription: dto.incident?.description || (dto as any).description,
+        incidentType: (dto.incident?.incidentType as any) || (dto as any).incidentType || 'OTHER',
         createdById: userId,
       },
     });
@@ -198,7 +227,18 @@ export class ClaimsService {
         orderBy: { createdAt: 'desc' },
         include: {
           policy: true,
-          assessment: true,
+          assessment: {
+            include: {
+              examiner: {
+                select: { id: true, name: true, role: true },
+              },
+            },
+          },
+          auditEvents: {
+            where: { action: 'EXAMINER_ASSIGNED' },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
           _count: { select: { evidence: true } },
         },
       }),
@@ -218,7 +258,18 @@ export class ClaimsService {
       where: { id: claimId },
       include: {
         policy: true,
-        assessment: true,
+        assessment: {
+          include: {
+            examiner: {
+              select: { id: true, name: true, role: true },
+            },
+          },
+        },
+        auditEvents: {
+          where: { action: 'EXAMINER_ASSIGNED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
         _count: { select: { evidence: true } },
       },
     });
@@ -230,6 +281,140 @@ export class ClaimsService {
     }
 
     return formatClaim(claim);
+  }
+
+  async submit(claimId: string, dto: SubmitClaimDto, userId: string, userRole: string) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+      include: { policy: true },
+    });
+
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
+      throw new ForbiddenException('Access denied to submit this claim');
+    }
+
+    if (claim.status !== 'DRAFT' && claim.status !== 'POLICY_UNVERIFIED') {
+      throw new ConflictException(`Claim is already in ${claim.status} status`);
+    }
+
+    let policyVerification = claim.policyVerification;
+    if (claim.policy) {
+      if (claim.policy.status !== 'ACTIVE') {
+        throw new ConflictException(`Cannot submit claim: Policy is ${claim.policy.status}`);
+      }
+      if (claim.policy.validTo && new Date(claim.policy.validTo) < new Date()) {
+        throw new ConflictException('Cannot submit claim: Policy has expired');
+      }
+      policyVerification = 'VERIFIED';
+    }
+
+    const updated = await this.prisma.claim.update({
+      where: { id: claimId },
+      data: {
+        status: 'SUBMITTED',
+        policyVerification,
+      },
+      include: {
+        policy: true,
+        assessment: {
+          include: { examiner: { select: { id: true, name: true, role: true } } },
+        },
+        auditEvents: {
+          where: { action: 'EXAMINER_ASSIGNED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: { select: { evidence: true } },
+      },
+    });
+
+    await this.prisma.auditEvent.create({
+      data: {
+        claimId,
+        actorId: userId,
+        action: 'CLAIM_SUBMITTED',
+        summary: `Claim ${claim.claimNumber} submitted for adjudication`,
+        details: { confirmationNotes: dto.confirmationNotes },
+      },
+    });
+
+    return formatClaim(updated);
+  }
+
+  async assignExaminer(claimId: string, dto: AssignExaminerDto, adminId: string) {
+    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    const examiner = await this.prisma.user.findUnique({
+      where: { id: dto.examinerId },
+    });
+
+    if (!examiner) throw new NotFoundException('Examiner not found');
+    if (examiner.role !== 'EXAMINER' && examiner.role !== 'ADMIN') {
+      throw new ConflictException('Selected user is not an examiner');
+    }
+
+    let newStatus = claim.status;
+    if (['SUBMITTED', 'READY_FOR_REVIEW'].includes(claim.status)) {
+      newStatus = 'UNDER_REVIEW';
+      await this.prisma.claim.update({
+        where: { id: claimId },
+        data: { status: 'UNDER_REVIEW' },
+      });
+    }
+
+    await this.prisma.auditEvent.create({
+      data: {
+        claimId,
+        actorId: adminId,
+        action: 'EXAMINER_ASSIGNED',
+        summary: `Claim assigned to examiner ${examiner.name}`,
+        details: {
+          examinerId: examiner.id,
+          examinerName: examiner.name,
+          examinerEmail: examiner.email,
+          note: dto.note,
+        },
+      },
+    });
+
+    return {
+      claimId,
+      status: newStatus,
+      assignedExaminer: {
+        id: examiner.id,
+        name: examiner.name,
+        email: examiner.email,
+      },
+    };
+  }
+
+  async close(claimId: string, dto: CloseClaimDto, adminId: string) {
+    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    const updated = await this.prisma.claim.update({
+      where: { id: claimId },
+      data: { status: 'CLOSED' },
+    });
+
+    await this.prisma.auditEvent.create({
+      data: {
+        claimId,
+        actorId: adminId,
+        action: 'CLAIM_CLOSED',
+        summary: `Claim closed: ${dto.reason}`,
+        details: { reason: dto.reason, notes: dto.notes },
+      },
+    });
+
+    return {
+      id: claimId,
+      status: updated.status,
+      reason: dto.reason,
+    };
   }
 
   async update(claimId: string, dto: UpdateClaimDto, userId: string, userRole: string) {
@@ -264,7 +449,18 @@ export class ClaimsService {
         ...(dto.incident?.description !== undefined && { incidentDescription: dto.incident.description }),
         ...(dto.incident?.incidentType !== undefined && { incidentType: dto.incident.incidentType as any }),
       },
-      include: { policy: true, assessment: true, _count: { select: { evidence: true } } },
+      include: {
+        policy: true,
+        assessment: {
+          include: { examiner: { select: { id: true, name: true, role: true } } },
+        },
+        auditEvents: {
+          where: { action: 'EXAMINER_ASSIGNED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        _count: { select: { evidence: true } },
+      },
     });
 
     await this.prisma.auditEvent.create({
@@ -292,6 +488,13 @@ export class ClaimsService {
       // Intake users can only submit (DRAFT -> SUBMITTED)
       if (claim.status !== 'DRAFT' || dto.status !== 'SUBMITTED') {
         throw new ForbiddenException('Intake users can only submit draft claims');
+      }
+    }
+
+    if (userRole === 'EXAMINER') {
+      // Examiners cannot arbitrarily approve, reject, or close without decision endpoint
+      if (['APPROVED', 'REJECTED', 'CLOSED'].includes(dto.status)) {
+        throw new ForbiddenException('Final decisions must be recorded via the decision action');
       }
     }
 
@@ -377,3 +580,4 @@ export class ClaimsService {
     };
   }
 }
+

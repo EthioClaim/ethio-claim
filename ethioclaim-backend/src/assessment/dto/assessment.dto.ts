@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export enum SeverityEnum {
   MINOR = 'MINOR',
@@ -11,6 +12,7 @@ export class CreateAssessmentDto {
   @IsEnum(SeverityEnum)
   severity: SeverityEnum;
 
+  @Transform(({ value }) => (value !== undefined && value !== null ? String(value) : value))
   @IsString()
   estimatedLossEtb: string;
 
@@ -28,6 +30,7 @@ export class UpdateAssessmentDto {
   @IsOptional()
   severity?: SeverityEnum;
 
+  @Transform(({ value }) => (value !== undefined && value !== null ? String(value) : value))
   @IsString()
   @IsOptional()
   estimatedLossEtb?: string;

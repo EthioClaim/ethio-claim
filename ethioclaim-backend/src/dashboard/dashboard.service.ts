@@ -42,7 +42,7 @@ export class DashboardService {
     // Recent claims
     const recentClaims = await this.prisma.claim.findMany({
       where,
-      take: 5,
+      take: 6,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -54,11 +54,57 @@ export class DashboardService {
       },
     });
 
+    // Role-specific operational telemetry
+    let adminMetrics: any = null;
+    let intakeMetrics: any = null;
+    let examinerMetrics: any = null;
+
+    if (role === 'ADMIN') {
+      const [activePolicies, expiredPolicies, failedAnalyses] = await Promise.all([
+        this.prisma.policy.count({ where: { status: 'ACTIVE' } }),
+        this.prisma.policy.count({ where: { status: 'EXPIRED' } }),
+        this.prisma.damageAnalysis.count({ where: { status: 'FAILED' } }),
+      ]);
+
+      adminMetrics = {
+        activePolicies,
+        expiredPolicies,
+        totalPolicies: activePolicies + expiredPolicies,
+        failedAnalyses,
+        unassignedClaims: (countsByStatus['SUBMITTED'] || 0) + (countsByStatus['READY_FOR_REVIEW'] || 0),
+      };
+    } else if (role === 'INTAKE_USER') {
+      intakeMetrics = {
+        draftsCount: countsByStatus['DRAFT'] || 0,
+        submittedCount: countsByStatus['SUBMITTED'] || 0,
+        needsMoreInfoCount: (countsByStatus['NEED_MORE_EVIDENCE'] || 0),
+        underReviewCount: (countsByStatus['UNDER_REVIEW'] || 0) + (countsByStatus['ASSESSED'] || 0),
+      };
+    } else if (role === 'EXAMINER') {
+      const [assessedByMe, failedAnalyses] = await Promise.all([
+        this.prisma.examinerAssessment.count({ where: { examinerId: userId } }),
+        this.prisma.damageAnalysis.count({ where: { status: 'FAILED' } }),
+      ]);
+
+      examinerMetrics = {
+        assignedQueueCount: (countsByStatus['UNDER_REVIEW'] || 0),
+        awaitingReviewCount: (countsByStatus['SUBMITTED'] || 0) + (countsByStatus['READY_FOR_REVIEW'] || 0),
+        infoRequestedCount: (countsByStatus['NEED_MORE_EVIDENCE'] || 0),
+        completedAssessmentsCount: assessedByMe,
+        failedAnalysisCount: failedAnalyses,
+      };
+    }
+
     return {
+      role,
       countsByStatus,
       needsReview,
       totalClaims,
       recentClaims,
+      adminMetrics,
+      intakeMetrics,
+      examinerMetrics,
     };
   }
 }
+

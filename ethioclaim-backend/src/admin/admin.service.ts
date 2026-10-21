@@ -286,4 +286,262 @@ export class AdminService {
       updatedAt: updated.updatedAt,
     };
   }
+
+  async findUserById(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        active: true,
+        createdAt: true,
+        updatedAt: true,
+        _count: {
+          select: {
+            createdClaims: true,
+            assessments: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    return user;
+  }
+
+  async resetPassword(userId: string, newPassword: string, adminId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${userId} not found`);
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    await this.prisma.auditEvent.create({
+      data: {
+        actorId: adminId,
+        action: 'ADMIN_PASSWORD_RESET',
+        summary: `Admin reset password for user ${user.email}`,
+        details: { targetUserId: user.id },
+      },
+    });
+
+    return {
+      success: true,
+      message: `Password reset successfully for ${user.email}`,
+    };
+  }
+
+  async findPolicyById(policyId: string) {
+    const policy = await this.prisma.policy.findUnique({
+      where: { id: policyId },
+      include: {
+        claims: {
+          take: 10,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            claimNumber: true,
+            status: true,
+            claimantFullName: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!policy) {
+      throw new NotFoundException(`Policy with ID ${policyId} not found`);
+    }
+
+    return {
+      id: policy.id,
+      policyNumber: policy.policyNumber,
+      status: policy.status,
+      holderName: policy.holderName,
+      vehicleRegistration: policy.vehicleRegistration,
+      vehicleMake: policy.vehicleMake,
+      vehicleModel: policy.vehicleModel,
+      insurer: policy.insurer,
+      validFrom: policy.validFrom,
+      validTo: policy.validTo,
+      coverageAmount: policy.coverageAmount?.toString(),
+      createdAt: policy.createdAt,
+      updatedAt: policy.updatedAt,
+      claims: policy.claims,
+    };
+  }
+
+  async getAuditLogs(query: {
+    page?: number;
+    pageSize?: number;
+    actorId?: string;
+    claimId?: string;
+    action?: string;
+    from?: string;
+    to?: string;
+    q?: string;
+  }) {
+    const page = Math.max(1, query.page || 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize || 25));
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+    if (query.actorId) where.actorId = query.actorId;
+    if (query.claimId) where.claimId = query.claimId;
+    if (query.action) where.action = query.action;
+
+    if (query.from || query.to) {
+      where.createdAt = {};
+      if (query.from) where.createdAt.gte = new Date(query.from);
+      if (query.to) where.createdAt.lte = new Date(query.to);
+    }
+
+    if (query.q) {
+      where.OR = [
+        { summary: { contains: query.q, mode: 'insensitive' } },
+        { action: { contains: query.q, mode: 'insensitive' } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.auditEvent.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          actor: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+          claim: {
+            select: {
+              id: true,
+              claimNumber: true,
+            },
+          },
+        },
+      }),
+      this.prisma.auditEvent.count({ where }),
+    ]);
+
+    return {
+      items,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async getAnalysisOperations(query?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = Math.max(1, query?.page || 1);
+    const pageSize = Math.min(50, Math.max(1, query?.pageSize || 20));
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {};
+    if (query?.status) {
+      where.status = query.status as any;
+    }
+
+    const [items, total, countsByStatus] = await Promise.all([
+      this.prisma.damageAnalysis.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          evidence: {
+            select: {
+              id: true,
+              originalName: true,
+              mimeType: true,
+              sizeBytes: true,
+              storageKey: true,
+              publicUrl: true,
+              sha256: true,
+              phash: true,
+              claim: {
+                select: {
+                  id: true,
+                  claimNumber: true,
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.damageAnalysis.count({ where }),
+      this.prisma.damageAnalysis.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
+
+    const statusCounts: Record<string, number> = {
+      PENDING: 0,
+      PROCESSING: 0,
+      COMPLETED: 0,
+      FAILED: 0,
+    };
+
+    for (const group of countsByStatus) {
+      statusCounts[group.status] = group._count._all;
+    }
+
+    return {
+      items: items.map((a) => ({
+        id: a.id,
+        evidenceId: a.evidenceId,
+        status: a.status,
+        modelName: a.modelName,
+        modelVersion: a.modelVersion,
+        inferenceMs: a.inferenceMs,
+        errorCode: a.errorCode,
+        errorMessage: a.errorMessage,
+        retriedAt: a.retriedAt,
+        createdAt: a.createdAt,
+        evidence: {
+          id: a.evidence.id,
+          originalName: a.evidence.originalName,
+          mimeType: a.evidence.mimeType,
+          sizeBytes: Number(a.evidence.sizeBytes),
+          publicUrl: a.evidence.publicUrl,
+          sha256: a.evidence.sha256,
+          phash: a.evidence.phash,
+          claimId: a.evidence.claim.id,
+          claimNumber: a.evidence.claim.claimNumber,
+          claimStatus: a.evidence.claim.status,
+        },
+      })),
+      statusCounts,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
 }

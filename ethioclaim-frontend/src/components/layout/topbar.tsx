@@ -12,14 +12,27 @@ const ROUTE_LABELS: Record<string, string> = {
   "/policies/verify": "Policy Registry Verification",
   "/admin/users": "Staff & User Management",
   "/admin/policies": "Policy Registry Administration",
+  "/admin/audit": "Administrative Audit Trail",
+  "/admin/operations": "Evidence Analysis Telemetry & Jobs",
 };
 
 export default function Topbar() {
   const pathname = usePathname();
   const [apiStatus, setApiStatus] = useState<"ok" | "error" | "checking">("checking");
   const [mockActive, setMockActive] = useState<boolean>(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
+    try {
+      const stored = localStorage.getItem("ethioclaim_user");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setUserRole(parsed.role || null);
+      }
+    } catch {
+      // ignore
+    }
+
     const unsub = subscribeToMockFallbackState((active) => {
       setMockActive(active);
     });
@@ -47,6 +60,8 @@ export default function Topbar() {
     }
     return "EthioClaim";
   })();
+
+  const canCreateClaim = userRole === "INTAKE_USER" || userRole === "ADMIN";
 
   return (
     <header className="topbar apple-chrome">
@@ -122,16 +137,18 @@ export default function Topbar() {
           </span>
         </div>
 
-        {/* Quick Intake CTA */}
-        <Link
-          href="/claims/new"
-          className="btn btn-primary text-xs py-1.5 px-3 font-semibold shadow-sm flex items-center gap-1.5"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          <span className="hidden sm:inline">New Claim</span>
-        </Link>
+        {/* Quick Intake CTA - only for Intake User and Admin */}
+        {canCreateClaim && (
+          <Link
+            href="/claims/new"
+            className="btn btn-primary text-xs py-1.5 px-3 font-semibold shadow-sm flex items-center gap-1.5"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span className="hidden sm:inline">New Claim</span>
+          </Link>
+        )}
       </div>
     </header>
   );

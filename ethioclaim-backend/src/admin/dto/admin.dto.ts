@@ -104,3 +104,9 @@ export class UpdatePolicyDto {
   @IsOptional()
   coverageAmount?: string;
 }
+
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(6)
+  newPassword: string;
+}

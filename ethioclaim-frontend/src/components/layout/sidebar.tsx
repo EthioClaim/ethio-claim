@@ -10,6 +10,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
+  allowedRoles?: string[];
 }
 
 const NavIcon = ({ path }: { path: string }) => (
@@ -18,13 +19,13 @@ const NavIcon = ({ path }: { path: string }) => (
   </svg>
 );
 
-const navItems: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
+const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
   {
     group: "Operational Overview",
     items: [
       {
         href: "/dashboard",
-        label: "Dashboard Summary",
+        label: "Dashboard",
         icon: (
           <NavIcon path="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM14 5a1 1 0 011-1h4a1 1 0 011 1v14a1 1 0 01-1 1h-4a1 1 0 01-1-1V5z" />
         ),
@@ -36,7 +37,7 @@ const navItems: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
     items: [
       {
         href: "/claims",
-        label: "All Claims",
+        label: "Claims Management",
         icon: (
           <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         ),
@@ -44,6 +45,7 @@ const navItems: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
       {
         href: "/claims/new",
         label: "New Claim Intake",
+        allowedRoles: ["INTAKE_USER", "ADMIN"],
         icon: <NavIcon path="M12 4v16m8-8H4" />,
       },
     ],
@@ -67,6 +69,7 @@ const navItems: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
       {
         href: "/admin/users",
         label: "Staff & Users",
+        allowedRoles: ["ADMIN"],
         icon: (
           <NavIcon path="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         ),
@@ -74,8 +77,25 @@ const navItems: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
       {
         href: "/admin/policies",
         label: "Policy Registry Admin",
+        allowedRoles: ["ADMIN"],
         icon: (
           <NavIcon path="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        ),
+      },
+      {
+        href: "/admin/audit",
+        label: "Audit Logs",
+        allowedRoles: ["ADMIN"],
+        icon: (
+          <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zM15 7a2 2 0 11-4 0 2 2 0 014 0z" />
+        ),
+      },
+      {
+        href: "/admin/operations",
+        label: "Analysis Operations",
+        allowedRoles: ["ADMIN"],
+        icon: (
+          <NavIcon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
         ),
       },
     ],
@@ -138,42 +158,64 @@ export default function Sidebar() {
 
       {/* Navigation Groups */}
       <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
-        {navItems.map((group) => (
-          <div key={group.group} className="space-y-1">
-            <div className="px-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-              <span>{group.group}</span>
-              {group.adminOnly && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#BF5AF2]/20 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono">
-                  ADMIN
-                </span>
-              )}
-            </div>
-            <div className="space-y-1 pt-1">
-              {group.items.map((item) => {
-                const isActive =
-                  pathname === item.href ||
-                  (item.href !== "/claims" &&
-                    item.href !== "/dashboard" &&
-                    pathname.startsWith(item.href));
+        {navGroups
+          .filter((group) => !group.adminOnly || user?.role === "ADMIN")
+          .map((group) => {
+            const visibleItems = group.items.filter(
+              (item) => !item.allowedRoles || (user?.role && item.allowedRoles.includes(user.role))
+            );
 
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      isActive
-                        ? "bg-[#0A84FF] text-white shadow-sm"
-                        : "text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.06]"
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.label}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        ))}
+            if (visibleItems.length === 0) return null;
+
+            return (
+              <div key={group.group} className="space-y-1">
+                <div className="px-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
+                  <span>{group.group}</span>
+                  {group.adminOnly && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#BF5AF2]/20 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono">
+                      ADMIN
+                    </span>
+                  )}
+                </div>
+                <div className="space-y-1 pt-1">
+                  {visibleItems.map((item) => {
+                    const isActive =
+                      pathname === item.href ||
+                      (item.href !== "/claims" &&
+                        item.href !== "/dashboard" &&
+                        pathname.startsWith(item.href));
+
+                    // Role-tailored friendly label
+                    let dynamicLabel = item.label;
+                    if (item.href === "/claims") {
+                      if (user?.role === "EXAMINER") dynamicLabel = "Assigned Queue";
+                      else if (user?.role === "INTAKE_USER") dynamicLabel = "My Claims";
+                      else if (user?.role === "ADMIN") dynamicLabel = "All Claims (Admin)";
+                    } else if (item.href === "/dashboard") {
+                      if (user?.role === "EXAMINER") dynamicLabel = "Examiner Workspace";
+                      else if (user?.role === "INTAKE_USER") dynamicLabel = "Intake Dashboard";
+                      else if (user?.role === "ADMIN") dynamicLabel = "Admin Telemetry";
+                    }
+
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                          isActive
+                            ? "bg-[#0A84FF] text-white shadow-sm"
+                            : "text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.06]"
+                        }`}
+                      >
+                        {item.icon}
+                        <span>{dynamicLabel}</span>
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
       </nav>
 
       {/* User Footer */}
