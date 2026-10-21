@@ -600,9 +600,16 @@ export async function updateAdminUser(userId: string, payload: UpdateAdminUserPa
 /**
  * List policies: GET /api/v1/admin/policies
  */
-export async function fetchAdminPolicies(): Promise<Policy[]> {
-  const { data } = await apiClient.get<Policy[]>("/admin/policies");
-  return Array.isArray(data) ? data : [];
+export async function fetchAdminPolicies(params?: {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: string;
+}): Promise<Policy[]> {
+  const { data } = await apiClient.get<any>("/admin/policies", { params });
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
 }
 
 /**

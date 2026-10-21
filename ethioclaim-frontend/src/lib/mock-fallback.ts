@@ -1102,7 +1102,12 @@ export async function handleMockFallback(req: FallbackRequest): Promise<unknown>
 
   // 29. Admin Policies: GET /admin/policies
   if (method === "GET" && path.includes("/admin/policies")) {
-    return store.policies;
+    return {
+      items: store.policies,
+      page: 1,
+      pageSize: 50,
+      total: store.policies.length,
+    };
   }
 
   // 30. Admin Policies: POST /admin/policies
@@ -1118,10 +1123,14 @@ export async function handleMockFallback(req: FallbackRequest): Promise<unknown>
       policyNumber: body.policyNumber,
       normalizedPolicyNumber: (body.policyNumber || "").replace(/[^A-Z0-9]/g, "").toUpperCase(),
       status: body.status || "ACTIVE",
+      holderName: body.holderName || "New Policyholder",
+      vehicleRegistration: body.vehicleRegistration || undefined,
+      vehicleMake: body.vehicleMake || undefined,
+      vehicleModel: body.vehicleModel || undefined,
+      insurer: body.insurer || "Ethiopian Insurance Corporation",
       validFrom: body.validFrom || new Date().toISOString(),
       validTo: body.validTo || new Date(Date.now() + 365 * 86400000).toISOString(),
-      insurer: body.insurer || "Ethiopian Insurance Corporation",
-      holderName: body.holderName || "New Policyholder",
+      coverageAmount: body.coverageAmount || undefined,
       createdAt: new Date().toISOString(),
     };
     store.policies.unshift(newPol);

@@ -48,11 +48,16 @@ export interface Policy {
   policyNumber: string;
   normalizedPolicyNumber?: string;
   status: "ACTIVE" | "EXPIRED" | "SUSPENDED" | string;
-  validFrom?: string;
-  validTo?: string;
-  insurer?: string;
-  holderName?: string;
-  vehicleRegistration?: string;
+  holderName?: string | null;
+  policyholderName?: string | null;
+  vehicleRegistration?: string | null;
+  vehiclePlate?: string | null;
+  vehicleMake?: string | null;
+  vehicleModel?: string | null;
+  insurer?: string | null;
+  validFrom?: string | null;
+  validTo?: string | null;
+  coverageAmount?: string | number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -65,6 +70,7 @@ export interface PolicyVerificationResult {
   validTo?: string;
   insurer?: string;
   policyNumber?: string;
+  policy?: Policy | null;
 }
 
 // ── Claims ────────────────────────────────────────────────────────────────────
@@ -340,19 +346,27 @@ export interface UpdateAdminUserPayload {
 
 export interface CreatePolicyPayload {
   policyNumber: string;
+  holderName?: string;
+  vehicleRegistration?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  insurer?: string;
   status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | string;
   validFrom?: string;
   validTo?: string;
-  insurer?: string;
-  holderName?: string;
+  coverageAmount?: string;
 }
 
 export interface UpdatePolicyPayload {
+  holderName?: string;
+  vehicleRegistration?: string;
+  vehicleMake?: string;
+  vehicleModel?: string;
+  insurer?: string;
   status?: "ACTIVE" | "EXPIRED" | "SUSPENDED" | string;
   validFrom?: string;
   validTo?: string;
-  insurer?: string;
-  holderName?: string;
+  coverageAmount?: string;
 }
 
 // ── Query & Pagination ────────────────────────────────────────────────────────

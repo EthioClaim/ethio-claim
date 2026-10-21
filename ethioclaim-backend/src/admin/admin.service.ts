@@ -178,6 +178,7 @@ export class AdminService {
       items: items.map((p) => ({
         id: p.id,
         policyNumber: p.policyNumber,
+        normalizedPolicyNumber: p.normalizedPolicyNumber,
         status: p.status,
         holderName: p.holderName,
         vehicleRegistration: p.vehicleRegistration,
@@ -188,6 +189,7 @@ export class AdminService {
         validTo: p.validTo,
         coverageAmount: p.coverageAmount?.toString(),
         createdAt: p.createdAt,
+        updatedAt: p.updatedAt,
       })),
       page,
       pageSize,
@@ -218,6 +220,8 @@ export class AdminService {
         vehicleModel: dto.vehicleModel,
         insurer: dto.insurer || 'Ethio-Insurance Corp',
         status: (dto.status as any) || 'ACTIVE',
+        validFrom: dto.validFrom ? new Date(dto.validFrom) : null,
+        validTo: dto.validTo ? new Date(dto.validTo) : null,
         coverageAmount: dto.coverageAmount ? new Prisma.Decimal(dto.coverageAmount) : null,
       },
     });
@@ -234,11 +238,18 @@ export class AdminService {
     return {
       id: policy.id,
       policyNumber: policy.policyNumber,
+      normalizedPolicyNumber: policy.normalizedPolicyNumber,
       status: policy.status,
       holderName: policy.holderName,
       vehicleRegistration: policy.vehicleRegistration,
+      vehicleMake: policy.vehicleMake,
+      vehicleModel: policy.vehicleModel,
       insurer: policy.insurer,
+      validFrom: policy.validFrom,
+      validTo: policy.validTo,
+      coverageAmount: policy.coverageAmount?.toString(),
       createdAt: policy.createdAt,
+      updatedAt: policy.updatedAt,
     };
   }
 
@@ -258,6 +269,8 @@ export class AdminService {
     if (dto.vehicleModel !== undefined) updateData.vehicleModel = dto.vehicleModel;
     if (dto.insurer !== undefined) updateData.insurer = dto.insurer;
     if (dto.status !== undefined) updateData.status = dto.status;
+    if (dto.validFrom !== undefined) updateData.validFrom = dto.validFrom ? new Date(dto.validFrom) : null;
+    if (dto.validTo !== undefined) updateData.validTo = dto.validTo ? new Date(dto.validTo) : null;
     if (dto.coverageAmount !== undefined) {
       updateData.coverageAmount = dto.coverageAmount ? new Prisma.Decimal(dto.coverageAmount) : null;
     }
@@ -279,10 +292,17 @@ export class AdminService {
     return {
       id: updated.id,
       policyNumber: updated.policyNumber,
+      normalizedPolicyNumber: updated.normalizedPolicyNumber,
       status: updated.status,
       holderName: updated.holderName,
       vehicleRegistration: updated.vehicleRegistration,
+      vehicleMake: updated.vehicleMake,
+      vehicleModel: updated.vehicleModel,
       insurer: updated.insurer,
+      validFrom: updated.validFrom,
+      validTo: updated.validTo,
+      coverageAmount: updated.coverageAmount?.toString(),
+      createdAt: updated.createdAt,
       updatedAt: updated.updatedAt,
     };
   }

@@ -4,6 +4,7 @@ import {
   IsEnum,
   IsOptional,
   IsBoolean,
+  IsDateString,
   MinLength,
 } from 'class-validator';
 
@@ -70,6 +71,14 @@ export class CreatePolicyDto {
   @IsOptional()
   status?: string;
 
+  @IsDateString()
+  @IsOptional()
+  validFrom?: string;
+
+  @IsDateString()
+  @IsOptional()
+  validTo?: string;
+
   @IsString()
   @IsOptional()
   coverageAmount?: string;
@@ -99,6 +108,14 @@ export class UpdatePolicyDto {
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsDateString()
+  @IsOptional()
+  validFrom?: string;
+
+  @IsDateString()
+  @IsOptional()
+  validTo?: string;
 
   @IsString()
   @IsOptional()

@@ -27,6 +27,10 @@ export default function AdminPoliciesPage() {
     validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
     insurer: "Ethiopian Insurance Corporation",
     holderName: "",
+    vehicleRegistration: "",
+    vehicleMake: "",
+    vehicleModel: "",
+    coverageAmount: "500000",
   });
   const [submittingCreate, setSubmittingCreate] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -39,6 +43,10 @@ export default function AdminPoliciesPage() {
     validTo: "",
     insurer: "",
     holderName: "",
+    vehicleRegistration: "",
+    vehicleMake: "",
+    vehicleModel: "",
+    coverageAmount: "",
   });
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
@@ -87,6 +95,10 @@ export default function AdminPoliciesPage() {
         validTo: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
         insurer: "Ethiopian Insurance Corporation",
         holderName: "",
+        vehicleRegistration: "",
+        vehicleMake: "",
+        vehicleModel: "",
+        coverageAmount: "500000",
       });
       loadPolicies();
     } catch (err: unknown) {
@@ -104,7 +116,11 @@ export default function AdminPoliciesPage() {
       validFrom: p.validFrom ? p.validFrom.split("T")[0] : "",
       validTo: p.validTo ? p.validTo.split("T")[0] : "",
       insurer: p.insurer || "",
-      holderName: p.holderName || "",
+      holderName: p.holderName || p.policyholderName || "",
+      vehicleRegistration: p.vehicleRegistration || p.vehiclePlate || "",
+      vehicleMake: p.vehicleMake || "",
+      vehicleModel: p.vehicleModel || "",
+      coverageAmount: p.coverageAmount ? p.coverageAmount.toString() : "",
     });
     setEditError(null);
   }
@@ -133,6 +149,9 @@ export default function AdminPoliciesPage() {
       !search ||
       p.policyNumber.toLowerCase().includes(q) ||
       (p.holderName && p.holderName.toLowerCase().includes(q)) ||
+      (p.vehicleRegistration && p.vehicleRegistration.toLowerCase().includes(q)) ||
+      (p.vehicleMake && p.vehicleMake.toLowerCase().includes(q)) ||
+      (p.vehicleModel && p.vehicleModel.toLowerCase().includes(q)) ||
       (p.insurer && p.insurer.toLowerCase().includes(q));
     const matchesStatus = statusFilter === "ALL" || p.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -263,6 +282,8 @@ export default function AdminPoliciesPage() {
                 <tr>
                   <th className="px-5 py-3.5">Policy Number</th>
                   <th className="px-5 py-3.5">Policyholder</th>
+                  <th className="px-5 py-3.5">Insured Vehicle</th>
+                  <th className="px-5 py-3.5">Coverage Limit</th>
                   <th className="px-5 py-3.5">Insurer</th>
                   <th className="px-5 py-3.5">Validity Window</th>
                   <th className="px-5 py-3.5">Status</th>
@@ -288,7 +309,24 @@ export default function AdminPoliciesPage() {
                       </td>
 
                       <td className="px-5 py-3.5 font-semibold text-white">
-                        {p.holderName || "—"}
+                        {p.holderName || p.policyholderName || "—"}
+                      </td>
+
+                      <td className="px-5 py-3.5">
+                        <div className="font-mono text-white font-semibold">
+                          {p.vehicleRegistration || p.vehiclePlate || "—"}
+                        </div>
+                        {(p.vehicleMake || p.vehicleModel) && (
+                          <div className="text-[11px] text-[var(--text-muted)]">
+                            {[p.vehicleMake, p.vehicleModel].filter(Boolean).join(" ")}
+                          </div>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-3.5 font-mono text-white">
+                        {p.coverageAmount
+                          ? `${Number(p.coverageAmount).toLocaleString()} ETB`
+                          : "—"}
                       </td>
 
                       <td className="px-5 py-3.5 text-[var(--text-secondary)]">
@@ -349,7 +387,7 @@ export default function AdminPoliciesPage() {
       {/* CREATE POLICY MODAL */}
       {isCreateOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+          <div className="card apple-glass max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <h3 className="text-base font-bold text-white">Register Policy Record</h3>
               <button
@@ -367,47 +405,102 @@ export default function AdminPoliciesPage() {
             )}
 
             <form onSubmit={handleCreatePolicy} className="space-y-4 text-xs">
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                  Policy Number *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={createForm.policyNumber}
-                  onChange={(e) => setCreateForm({ ...createForm, policyNumber: e.target.value.toUpperCase() })}
-                  placeholder="ETH-POL-2026-9001"
-                  className="input w-full text-xs font-mono"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Policy Number *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.policyNumber}
+                    onChange={(e) => setCreateForm({ ...createForm, policyNumber: e.target.value.toUpperCase() })}
+                    placeholder="ETH-POL-2026-9001"
+                    className="input w-full text-xs font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Policyholder Name
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.holderName || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, holderName: e.target.value })}
+                    placeholder="Tadesse Mengistu"
+                    className="input w-full text-xs"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                  Policyholder Name
-                </label>
-                <input
-                  type="text"
-                  value={createForm.holderName || ""}
-                  onChange={(e) => setCreateForm({ ...createForm, holderName: e.target.value })}
-                  placeholder="Tadesse Mengistu"
-                  className="input w-full text-xs"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Plate / Reg
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.vehicleRegistration || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, vehicleRegistration: e.target.value.toUpperCase() })}
+                    placeholder="ET-3-A12345"
+                    className="input w-full text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Make
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.vehicleMake || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, vehicleMake: e.target.value })}
+                    placeholder="Toyota"
+                    className="input w-full text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Model
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.vehicleModel || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, vehicleModel: e.target.value })}
+                    placeholder="Corolla"
+                    className="input w-full text-xs"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                  Underwriting Insurer
-                </label>
-                <input
-                  type="text"
-                  value={createForm.insurer || ""}
-                  onChange={(e) => setCreateForm({ ...createForm, insurer: e.target.value })}
-                  placeholder="Ethiopian Insurance Corporation"
-                  className="input w-full text-xs"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Coverage Limit (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    value={createForm.coverageAmount || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, coverageAmount: e.target.value })}
+                    placeholder="500000"
+                    className="input w-full text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Underwriting Insurer
+                  </label>
+                  <input
+                    type="text"
+                    value={createForm.insurer || ""}
+                    onChange={(e) => setCreateForm({ ...createForm, insurer: e.target.value })}
+                    placeholder="Ethiopian Insurance Corporation"
+                    className="input w-full text-xs"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
                     Coverage From
@@ -474,7 +567,7 @@ export default function AdminPoliciesPage() {
       {/* EDIT POLICY MODAL */}
       {editingPolicy && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+          <div className="card apple-glass max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl">
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <div>
                 <h3 className="text-base font-bold text-white">Edit Policy Record</h3>
@@ -507,19 +600,72 @@ export default function AdminPoliciesPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
-                  Underwriting Insurer
-                </label>
-                <input
-                  type="text"
-                  value={editForm.insurer || ""}
-                  onChange={(e) => setEditForm({ ...editForm, insurer: e.target.value })}
-                  className="input w-full text-xs"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Plate / Reg
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.vehicleRegistration || ""}
+                    onChange={(e) => setEditForm({ ...editForm, vehicleRegistration: e.target.value.toUpperCase() })}
+                    placeholder="ET-3-A12345"
+                    className="input w-full text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Make
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.vehicleMake || ""}
+                    onChange={(e) => setEditForm({ ...editForm, vehicleMake: e.target.value })}
+                    placeholder="Toyota"
+                    className="input w-full text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Vehicle Model
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.vehicleModel || ""}
+                    onChange={(e) => setEditForm({ ...editForm, vehicleModel: e.target.value })}
+                    placeholder="Corolla"
+                    className="input w-full text-xs"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Coverage Limit (ETB)
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.coverageAmount || ""}
+                    onChange={(e) => setEditForm({ ...editForm, coverageAmount: e.target.value })}
+                    placeholder="500000"
+                    className="input w-full text-xs font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
+                    Underwriting Insurer
+                  </label>
+                  <input
+                    type="text"
+                    value={editForm.insurer || ""}
+                    onChange={(e) => setEditForm({ ...editForm, insurer: e.target.value })}
+                    className="input w-full text-xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-[var(--text-secondary)] mb-1">
                     Coverage From
