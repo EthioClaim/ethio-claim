@@ -1161,6 +1161,85 @@ export async function handleMockFallback(req: FallbackRequest): Promise<unknown>
     }
   }
 
+  // 32. Admin Audit Log: GET /admin/audit-log
+  if (method === "GET" && path.includes("/admin/audit-log")) {
+    const mockLogs = [
+      {
+        id: "evt-mock-01",
+        action: "CLAIM_CREATED",
+        summary: "Claim CLM-2026-00101 registered by Intake Officer",
+        details: { policyNumber: "ETH-POL-2026-001" },
+        createdAt: new Date().toISOString(),
+        actor: { id: "usr-intake-01", name: "Abebe Kebede", email: "intake@ethioclaim.et", role: "INTAKE_USER" },
+        claim: { id: "clm-101", claimNumber: "CLM-2026-00101" },
+      },
+      {
+        id: "evt-mock-02",
+        action: "EXAMINER_ASSIGNED",
+        summary: "Examiner Solomon Tadesse assigned to CLM-2026-00101",
+        details: { examinerId: "usr-examiner-01" },
+        createdAt: new Date(Date.now() - 3600000).toISOString(),
+        actor: { id: "usr-admin-01", name: "Hanna Girma", email: "admin@ethioclaim.et", role: "ADMIN" },
+        claim: { id: "clm-101", claimNumber: "CLM-2026-00101" },
+      },
+      {
+        id: "evt-mock-03",
+        action: "AI_POTENTIAL_FRAUD_FLAGGED",
+        summary: "AI Vision flagged POTENTIAL_FRAUD: Cross-claim perceptual match detected",
+        details: { requiresExaminerReview: true },
+        createdAt: new Date(Date.now() - 7200000).toISOString(),
+        actor: { id: "usr-system-01", name: "EthioClaim AI Vision", email: "system@ethioclaim.et", role: "SYSTEM" },
+        claim: { id: "clm-101", claimNumber: "CLM-2026-00101" },
+      },
+    ];
+    return {
+      items: mockLogs,
+      page: 1,
+      pageSize: 15,
+      total: mockLogs.length,
+      totalPages: 1,
+    };
+  }
+
+  // 33. Admin Operations Analysis: GET /admin/operations/analysis
+  if (method === "GET" && path.includes("/admin/operations/analysis")) {
+    const mockOps = [
+      {
+        id: "ana-mock-01",
+        evidenceId: "ev-101",
+        status: "COMPLETED",
+        modelName: "EthioClaim-VisionAI",
+        modelVersion: "v1.2",
+        inferenceMs: 840,
+        createdAt: new Date().toISOString(),
+        evidence: {
+          id: "ev-101",
+          originalName: "front_bumper_damage.jpg",
+          mimeType: "image/jpeg",
+          sizeBytes: 2450000,
+          publicUrl: "https://images.unsplash.com/photo-1590362891991-f776e747a588",
+          sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          phash: "a1b2c3d4e5f60718",
+          claimId: "clm-101",
+          claimNumber: "CLM-2026-00101",
+          claimStatus: "READY_FOR_REVIEW",
+        },
+      },
+    ];
+    return {
+      items: mockOps,
+      page: 1,
+      pageSize: 15,
+      total: mockOps.length,
+      totalPages: 1,
+      statusCounts: {
+        COMPLETED: 1,
+        FAILED: 0,
+        PENDING: 0,
+      },
+    };
+  }
+
   // Default fallback for unmatched routes
   return { success: true, message: "Handled by mock fallback" };
 }

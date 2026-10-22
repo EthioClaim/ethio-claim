@@ -92,8 +92,9 @@ export type RiskLevel = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
 
 export interface ClaimParty {
   id?: string;
-  name: string;
-  phone: string;
+  name?: string;
+  fullName?: string;
+  phone?: string;
   email?: string;
   idNumber?: string;
 }
@@ -114,6 +115,7 @@ export interface ClaimSummary {
   claimNumber?: string;
   policyNumber: string;
   claimantName: string;
+  claimantFullName?: string;
   vehiclePlate?: string;
   incidentDate: string;
   status: ClaimStatus;
@@ -181,6 +183,8 @@ export interface Claim {
   accidentDescription?: string;
 
   claimant: ClaimParty;
+  claimantName?: string;
+  claimantFullName?: string;
   vehicle: Vehicle;
   policyNumber?: string;
   policy?: Policy;
@@ -189,6 +193,15 @@ export interface Claim {
   latestAssessment?: ExaminerAssessment;
   assessmentSummary?: ExaminerAssessment;
   examiner?: CurrentUser;
+
+  aiSuggestedSeverity?: "MINOR" | "MODERATE" | "SEVERE" | string;
+  aiRiskAssessment?: {
+    label: "NO_FRAUD_INDICATORS_FOUND" | "POTENTIAL_FRAUD" | "PENDING" | "FAILED" | string;
+    reasons?: string[];
+    confidence?: number;
+    matchedEvidenceIds?: string[];
+    matchedClaimIds?: string[];
+  };
 
   estimatedAmount?: number;
   currency?: string;
@@ -222,15 +235,20 @@ export interface Evidence {
   url?: string;
   thumbnailUrl?: string;
   viewType?: string;
+  analysis?: DamageAnalysis | null;
+  riskAssessment?: any;
 }
 
 export interface DamageDetection {
   id?: string;
   part?: string;
-  damageType: string;
+  damageType?: string;
   severity?: string;
-  confidence: number;
+  confidence?: number;
   bbox?: [number, number, number, number];
+  label?: string;
+  box?: number[];
+  areaPercentage?: number;
 }
 
 export interface DamageAnalysis {
@@ -242,11 +260,27 @@ export interface DamageAnalysis {
   status?: string;
   detections: DamageDetection[];
   errorMessage?: string;
+  errorCode?: string;
   createdAt?: string;
   processingTime?: number;
+  inferenceMs?: number;
+  riskAssessment?: {
+    label: "NO_FRAUD_INDICATORS_FOUND" | "POTENTIAL_FRAUD" | "PENDING" | "FAILED" | string;
+    reasons?: string[];
+    confidence?: number;
+    matchedEvidenceIds?: string[];
+    matchedClaimIds?: string[];
+  };
+  warnings?: string[];
+  ocrResult?: any;
 }
 
-export type SimilarityMatchType = "EXACT_HASH" | "PERCEPTUAL_HASH" | "EMBEDDING_SIMILARITY";
+export type SimilarityMatchType =
+  | "EXACT_HASH"
+  | "PERCEPTUAL_HASH"
+  | "NEAR_DUPLICATE"
+  | "EMBEDDING_SIMILARITY"
+  | "VISUAL_SIMILARITY";
 
 export interface SimilarityMatch {
   id: string;

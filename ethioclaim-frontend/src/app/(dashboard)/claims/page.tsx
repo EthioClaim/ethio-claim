@@ -269,7 +269,12 @@ export default function ClaimsListPage() {
               </thead>
               <tbody className="divide-y divide-[var(--border)] font-normal">
                 {claims.map((claim) => {
-                  const claimantName = claim.claimant?.name || "—";
+                  const claimantName =
+                    claim.claimant?.fullName ||
+                    claim.claimant?.name ||
+                    claim.claimantFullName ||
+                    claim.claimantName ||
+                    "—";
                   const vehicleLabel = claim.vehicle
                     ? `${claim.vehicle.year || ""} ${claim.vehicle.make} ${claim.vehicle.model}`.trim()
                     : "—";

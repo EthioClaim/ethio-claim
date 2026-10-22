@@ -60,6 +60,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
   const [decisionType, setDecisionType] = useState<ExaminerDecisionType>("REFER_FOR_INSPECTION");
   const [decisionNotes, setDecisionNotes] = useState("");
   const [submittingDecision, setSubmittingDecision] = useState(false);
+  const [fraudAcknowledged, setFraudAcknowledged] = useState(false);
 
   // Evidence Request modal state
   const [showEvidenceModal, setShowEvidenceModal] = useState(false);
@@ -377,11 +378,23 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
   const isExaminer = role === "EXAMINER";
   const isAdmin = role === "ADMIN";
 
-  const claimant = claim.claimant || { name: "Unknown", phone: "—" };
+  const claimant = claim.claimant || { name: (claim as any).claimantFullName || (claim as any).claimantName || "Not provided", phone: "—" };
+  const claimantDisplayName =
+    claimant.fullName ||
+    claimant.name ||
+    (claim as any).claimantFullName ||
+    (claim as any).claimantName ||
+    "Not provided";
   const vehicle = claim.vehicle || { make: "Unknown", model: "Unknown", plate: "—" };
   const policy: Partial<Policy> = claim.policy || { policyNumber: claim.policyNumber || "—" };
   const evidenceList = claim.evidence || [];
   const assignedExaminerInfo = (claim as any).assignedExaminer || (claim as any).assessment?.examiner;
+
+  // Resolve AI risk assessment from top-level or child evidence analyses
+  const aiRiskAssessment =
+    claim.aiRiskAssessment ||
+    (evidenceList as any[]).find((e) => e.analysis?.detections?.riskAssessment?.label === "POTENTIAL_FRAUD")?.analysis?.detections?.riskAssessment ||
+    (evidenceList as any[]).find((e) => e.riskAssessment?.label === "POTENTIAL_FRAUD")?.riskAssessment;
 
   // Allowed transitions based on user role
   const allowedTransitions = isExaminer
@@ -412,6 +425,43 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
         <span className="text-white/20">/</span>
         <span className="text-white font-mono font-semibold">{claim.claimNumber || claim.id}</span>
       </nav>
+
+      {/* AI Potential Fraud Warning Banner */}
+      {aiRiskAssessment?.label === "POTENTIAL_FRAUD" && (
+        <div className="card apple-glass p-5 border-l-4 border-l-[#FF453A] bg-gradient-to-r from-[#FF453A]/15 to-transparent space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-2 text-sm font-bold text-[#FF453A]">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+              <span>POTENTIAL FRAUD FLAGGED BY AI VISION SCREENING</span>
+            </div>
+            <span className="badge text-[10px] bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/30 font-mono">
+              REQUIRES MANUAL REVIEW
+            </span>
+          </div>
+          <div className="text-xs text-[var(--text-secondary)] space-y-1.5 pl-7">
+            <p className="font-semibold text-white">Screening Reasons:</p>
+            <ul className="list-disc list-inside space-y-1 text-[var(--text-muted)]">
+              {aiRiskAssessment.reasons?.map((r: string, idx: number) => (
+                <li key={idx}>{r}</li>
+              )) || <li>Duplicate evidence or image signature matched against an existing claim.</li>}
+            </ul>
+            {Boolean(aiRiskAssessment.matchedClaimIds?.length || aiRiskAssessment.matchedEvidenceIds?.length) && (
+              <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
+                {aiRiskAssessment.matchedClaimIds?.map((cid: string) => (
+                  <Link key={cid} href={`/claims/${cid}`} className="text-[#64D2FF] hover:underline bg-white/5 px-2 py-0.5 rounded">
+                    Matched Claim: {cid.slice(0, 8)}…
+                  </Link>
+                ))}
+              </div>
+            )}
+            <p className="text-[11px] text-[var(--text-muted)] italic pt-1">
+              Disclaimer: AI Vision screening is an assistive detection aid. Examiners must manually inspect matching evidence photos before finalizing adjudication.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Role-Specific Alert Banners */}
       {isIntakeUser && claim.status === "DRAFT" && (
@@ -555,7 +605,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 pt-5 border-t border-[var(--border)]">
           <div className="space-y-1">
             <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">Insured Claimant</div>
-            <div className="text-sm font-bold text-white tracking-tight">{claimant.name}</div>
+            <div className="text-sm font-bold text-white tracking-tight">{claimantDisplayName}</div>
             <div className="text-xs text-[var(--text-muted)] font-mono">{claimant.phone}</div>
           </div>
 
@@ -781,9 +831,25 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
             <form onSubmit={handleSaveAssessment} className="space-y-4">
               <div>
-                <label className="label text-xs uppercase text-[var(--text-muted)] font-semibold">
-                  Damage Severity (Manual Selection) *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="label text-xs uppercase text-[var(--text-muted)] font-semibold">
+                    Damage Severity (Manual Selection) *
+                  </label>
+                  {claim.aiSuggestedSeverity && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="badge text-[10px] bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/30 font-mono">
+                        AI Suggested: {claim.aiSuggestedSeverity}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSeverity(claim.aiSuggestedSeverity as AssessmentSeverity)}
+                        className="text-[10px] text-[#0A84FF] hover:underline font-semibold"
+                      >
+                        Use Suggestion
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
                   {(["MINOR", "MODERATE", "SEVERE", "UNDETERMINED"] as AssessmentSeverity[]).map((sev) => (
                     <button
@@ -892,10 +958,32 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 />
               </div>
 
+              {/* If AI flagged POTENTIAL_FRAUD, require acknowledgment before committing decision */}
+              {aiRiskAssessment?.label === "POTENTIAL_FRAUD" && (
+                <div className="p-3.5 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <input
+                      type="checkbox"
+                      id="ack-fraud-flag"
+                      checked={fraudAcknowledged}
+                      onChange={(e) => setFraudAcknowledged(e.target.checked)}
+                      className="mt-0.5 rounded border-white/20 text-[#FF453A] focus:ring-0"
+                    />
+                    <label htmlFor="ack-fraud-flag" className="text-xs text-[#FF6961] leading-tight select-none cursor-pointer">
+                      I have reviewed the flagged potential fraud indicators and am proceeding with this rationale.
+                    </label>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
-                disabled={submittingDecision || !decisionNotes.trim()}
-                className="btn btn-secondary w-full py-2.5 text-xs font-semibold border-[#0A84FF]/40 text-[#64D2FF] hover:bg-[#0A84FF]/10 flex items-center justify-center gap-2"
+                disabled={
+                  submittingDecision ||
+                  !decisionNotes.trim() ||
+                  (aiRiskAssessment?.label === "POTENTIAL_FRAUD" && !fraudAcknowledged)
+                }
+                className="btn btn-secondary w-full py-2.5 text-xs font-semibold border-[#0A84FF]/40 text-[#64D2FF] hover:bg-[#0A84FF]/10 flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {submittingDecision ? "Logging Decision…" : "Commit Examiner Decision"}
               </button>

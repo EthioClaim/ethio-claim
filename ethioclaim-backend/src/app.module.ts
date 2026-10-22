@@ -10,6 +10,7 @@ import { EvidenceModule } from './evidence/evidence.module';
 import { AssessmentModule } from './assessment/assessment.module';
 import { AdminModule } from './admin/admin.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     AssessmentModule,
     AdminModule,
     DashboardModule,
+    AiModule,
   ],
 })
 export class AppModule { }

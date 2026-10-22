@@ -1,6 +1,6 @@
 const http = require('http');
 
-const BASE_URL = 'http://localhost:3001/api/v1';
+const BASE_URL = 'http://localhost:3005/api/v1';
 
 async function request(path, options = {}) {
   const url = new URL(BASE_URL + path);
@@ -193,6 +193,34 @@ async function run() {
       });
       assert(examinerClose.status === 403, 'Examiner blocked from POST /claims/:id/close (403 Forbidden)');
 
+      // Unassigned examiner is blocked from recording assessment (RBAC Boundary)
+      const unassignedAssess = await request(`/claims/${testClaimId}/assessment`, {
+        method: 'POST',
+        token: examinerToken,
+        body: {
+          severity: 'MODERATE',
+          estimatedLossEtb: 38000,
+          currency: 'ETB',
+          notes: 'Unassigned examiner attempting assessment',
+        },
+      });
+      assert(unassignedAssess.status === 403, 'Unassigned examiner blocked from assessing claim (403 Forbidden)');
+
+      // Fetch examiner ID and assign claim to this examiner via Admin
+      const examinerMe = await request('/auth/me', { token: examinerToken });
+      const examinerId = examinerMe.data?.id;
+      if (examinerId) {
+        const assignRes = await request(`/claims/${testClaimId}/assign`, {
+          method: 'PATCH',
+          token: adminToken,
+          body: {
+            examinerId,
+            note: 'Assigned to examiner for comprehensive review',
+          },
+        });
+        assert(assignRes.status === 200, 'Admin successfully assigned examiner to claim (200 OK)');
+      }
+
       // Examiner CAN request additional information/evidence
       const reqInfo = await request(`/claims/${testClaimId}/request-information`, {
         method: 'POST',
@@ -204,7 +232,7 @@ async function run() {
       });
       assert(reqInfo.status === 200 || reqInfo.status === 201, 'Examiner successfully dispatched request-information (200 OK)');
 
-      // Examiner CAN record assessment
+      // Assigned Examiner CAN record assessment
       const examinerAssess = await request(`/claims/${testClaimId}/assessment`, {
         method: 'POST',
         token: examinerToken,
@@ -215,19 +243,19 @@ async function run() {
           notes: 'Rear bumper plastic deformation and light mount replacement needed.',
         },
       });
-      assert(examinerAssess.status === 200 || examinerAssess.status === 201, 'Examiner successfully recorded assessment (201 Created)');
+      assert(examinerAssess.status === 200 || examinerAssess.status === 201, 'Assigned examiner successfully recorded assessment (201 Created)');
 
-      // Examiner CAN record final decision
+      // Assigned Examiner CAN record final decision
       const examinerDec = await request(`/claims/${testClaimId}/decision`, {
         method: 'POST',
         token: examinerToken,
         body: {
-          decision: 'RECOMMEND_APPROVAL',
+          decision: 'APPROVED',
           notes: 'Loss estimation is consistent with policy coverage limits.',
           estimatedLossEtb: 38000,
         },
       });
-      assert(examinerDec.status === 200 || examinerDec.status === 201, 'Examiner successfully recorded decision (200 OK)');
+      assert(examinerDec.status === 200 || examinerDec.status === 201, 'Assigned examiner successfully recorded decision (200 OK)');
     }
 
     // 4. Test ADMIN Privileges

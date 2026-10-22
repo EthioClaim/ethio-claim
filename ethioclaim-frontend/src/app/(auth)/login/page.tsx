@@ -8,6 +8,7 @@ import {
   fetchCurrentUser,
   checkHealth,
   getStoredToken,
+  clearStoredSession,
   bypassLoginAs,
   registerMockAccount,
 } from "@/lib/api";
@@ -33,14 +34,21 @@ export default function LoginPage() {
 
   useEffect(() => {
     setMounted(true);
-    // If already authenticated, redirect
-    if (getStoredToken()) {
-      router.push("/claims");
-      return;
+    const token = getStoredToken();
+    if (token) {
+      // Validate stored token against real backend before redirecting
+      fetchCurrentUser()
+        .then(() => {
+          router.push("/claims");
+        })
+        .catch(() => {
+          clearStoredSession();
+        });
     }
     checkHealth()
       .then((res) => {
         if (res.status === "ok" || res.status) setApiOnline(true);
+        else setApiOnline(false);
       })
       .catch(() => setApiOnline(false));
   }, [router]);
@@ -314,56 +322,40 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* ── Quick-Access Offline Evaluation ── */}
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-[var(--border)]" />
-            <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-              Offline Evaluation
-            </span>
-            <div className="flex-grow border-t border-[var(--border)]" />
-          </div>
-
-          <div className="card apple-glass p-4 space-y-3 border border-[var(--border)] bg-white/[0.01]">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#FF9F0A]" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
-                  1-Click Mock Bypass
+          {/* ── Offline Demo Mode (Strictly for offline sandbox testing) ── */}
+          <div className="pt-2">
+            <details className="group border border-white/10 rounded-xl bg-white/[0.02] p-3 text-xs">
+              <summary className="cursor-pointer list-none flex items-center justify-between text-[var(--text-muted)] hover:text-white font-medium select-none">
+                <span className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full ${apiOnline === false ? "bg-[#FF9F0A]" : "bg-white/20"}`} />
+                  <span className="text-[11px] font-semibold">Offline Demo Sandbox</span>
                 </span>
+                <span className="text-[10px] text-[var(--text-muted)] group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="mt-3 pt-3 border-t border-white/5 space-y-3">
+                <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed">
+                  Notice: Sandbox mode uses in-memory mock fixtures. Real backend database records are not accessed or modified.
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {([
+                    { role: "EXAMINER" as const, label: "Demo Examiner", color: "#0A84FF" },
+                    { role: "ADMIN" as const, label: "Demo Admin", color: "#BF5AF2" },
+                    { role: "INTAKE_USER" as const, label: "Demo Intake", color: "#30D158" },
+                  ]).map((opt) => (
+                    <button
+                      key={opt.role}
+                      type="button"
+                      onClick={() => handleInstantBypass(opt.role)}
+                      className="p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 text-center transition-all group"
+                    >
+                      <span className="text-[11px] font-semibold text-white group-hover:text-[var(--accent-blue)]">
+                        {opt.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowSignUpModal(true)}
-                className="text-[10px] font-semibold text-[var(--text-muted)] hover:text-white underline transition-colors"
-              >
-                + Custom User
-              </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                { role: "EXAMINER" as const, label: "Examiner", color: "#0A84FF" },
-                { role: "ADMIN" as const, label: "Admin", color: "#BF5AF2" },
-                { role: "INTAKE_USER" as const, label: "Intake", color: "#30D158" },
-              ]).map((opt) => (
-                <button
-                  key={opt.role}
-                  type="button"
-                  onClick={() => handleInstantBypass(opt.role)}
-                  className="p-2 rounded-lg bg-white/[0.03] hover:bg-white/[0.07] border border-white/10 text-center transition-all group"
-                >
-                  <span className="text-[11px] font-semibold text-white group-hover:text-[var(--accent-blue)]">
-                    {opt.label}
-                  </span>
-                  <span
-                    className="block text-[9px] font-mono mt-0.5"
-                    style={{ color: opt.color }}
-                  >
-                    {opt.role}
-                  </span>
-                </button>
-              ))}
-            </div>
+            </details>
           </div>
         </div>
       </div>

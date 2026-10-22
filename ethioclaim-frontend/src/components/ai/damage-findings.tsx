@@ -83,12 +83,16 @@ export function DamageFindings({
                 )}
               </div>
               <span className="text-xs capitalize text-[var(--text-secondary)] font-medium">
-                {f.damageType}
+                {f.damageType || f.label || "Surface Damage"}
               </span>
               <span className="text-xs font-mono text-[var(--text-muted)]">
-                {f.bbox ? `[${f.bbox.map((n) => Math.round(n)).join(", ")}]` : "Detected"}
+                {f.bbox
+                  ? `[${f.bbox.map((n) => Math.round(n)).join(", ")}]`
+                  : f.box
+                  ? `[${f.box.map((n) => Math.round(n)).join(", ")}]`
+                  : "Detected"}
               </span>
-              <ConfidenceBar value={f.confidence} />
+              <ConfidenceBar value={f.confidence ?? 0} />
             </div>
           ))}
         </div>

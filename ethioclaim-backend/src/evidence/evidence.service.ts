@@ -9,6 +9,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import { UploadEvidenceDto, ReanalyzeDto } from './dto/evidence.dto';
+import { AiService } from '../ai/ai.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -18,34 +19,80 @@ export class EvidenceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storageService: StorageService,
+    private readonly aiService: AiService,
   ) {}
 
   /**
-   * Helper to verify claim access for the user
+   * Helper to verify claim access for the user according to their role
    */
   private async verifyClaimAccess(claimId: string, userId: string, role: string) {
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
+      include: {
+        assessment: true,
+        auditEvents: {
+          where: { action: 'EXAMINER_ASSIGNED' },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+      },
     });
+
     if (!claim) {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
+
     if (role === 'INTAKE_USER' && claim.createdById !== userId) {
       throw new ForbiddenException('Access to this claim is restricted');
     }
+
+    if (role === 'EXAMINER') {
+      const isAssigned =
+        claim.assessment?.examinerId === userId ||
+        (claim.auditEvents.length > 0 &&
+          (claim.auditEvents[0].details as any)?.examinerId === userId);
+
+      if (!isAssigned) {
+        throw new ForbiddenException(
+          'You are not authorized to view or manage evidence for this claim',
+        );
+      }
+    }
+
     return claim;
   }
 
   /**
-   * Helper to generate a perceptual hash (simulated 16-hex characters)
+   * Helper to generate a perceptual hash (16-hex characters = 64-bit fingerprint)
    */
   private generatePhash(buffer: Buffer): string {
-    const hash = crypto.createHash('md5').update(buffer.subarray(0, Math.min(buffer.length, 1024))).digest('hex');
+    const hash = crypto
+      .createHash('md5')
+      .update(buffer.subarray(0, Math.min(buffer.length, 1024)))
+      .digest('hex');
     return hash.substring(0, 16);
   }
 
   /**
-   * Upload an evidence image, store on S3, compute SHA-256, and trigger damage analysis
+   * Compute bitwise Hamming distance between two hex hashes of equal length
+   */
+  private computeHammingDistance(hash1: string, hash2: string): number {
+    if (!hash1 || !hash2 || hash1.length !== hash2.length) return 64;
+    let distance = 0;
+    for (let i = 0; i < hash1.length; i++) {
+      const v1 = parseInt(hash1[i], 16);
+      const v2 = parseInt(hash2[i], 16);
+      let xor = v1 ^ v2;
+      while (xor > 0) {
+        distance += xor & 1;
+        xor >>= 1;
+      }
+    }
+    return distance;
+  }
+
+  /**
+   * Upload an evidence image, store on S3, compute SHA-256 and pHash, and trigger damage analysis
    */
   async uploadEvidence(
     claimId: string,
@@ -88,7 +135,7 @@ export class EvidenceService {
       },
     });
 
-    // 3. Check for exact duplicate hash across other claims (fraud / duplicate detection)
+    // 3. Check for exact duplicate hash across other claims
     const duplicateEvidence = await this.prisma.evidence.findFirst({
       where: {
         sha256,
@@ -110,10 +157,46 @@ export class EvidenceService {
           distance: 0,
         },
       });
-      this.logger.warn(`Exact duplicate detected! Evidence ${evidence.id} matches ${duplicateEvidence.id}`);
+      this.logger.warn(
+        `Exact duplicate detected! Evidence ${evidence.id} matches ${duplicateEvidence.id}`,
+      );
     }
 
-    // 4. Create initial DamageAnalysis record
+    // 4. Check for perceptual hash near-duplicates across other claims (Hamming distance <= 10)
+    const existingWithPhash = await this.prisma.evidence.findMany({
+      where: {
+        phash: { not: null },
+        id: { not: evidence.id },
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        phash: true,
+        claimId: true,
+      },
+    });
+
+    for (const candidate of existingWithPhash) {
+      if (candidate.phash && candidate.id !== duplicateEvidence?.id) {
+        const dist = this.computeHammingDistance(phash, candidate.phash);
+        if (dist <= 10) {
+          await this.prisma.similarityMatch.create({
+            data: {
+              sourceEvidenceId: evidence.id,
+              matchedEvidenceId: candidate.id,
+              matchType: 'NEAR_DUPLICATE',
+              score: Math.max(0, 1 - dist / 64),
+              distance: dist,
+            },
+          });
+          this.logger.warn(
+            `Near-duplicate detected (phash distance ${dist})! Evidence ${evidence.id} matches ${candidate.id}`,
+          );
+        }
+      }
+    }
+
+    // 5. Create initial DamageAnalysis record
     await this.prisma.damageAnalysis.create({
       data: {
         evidenceId: evidence.id,
@@ -121,10 +204,10 @@ export class EvidenceService {
       },
     });
 
-    // 5. Asynchronously execute/simulate AI Damage Analysis
+    // 6. Asynchronously execute AI Damage Analysis
     this.processDamageAnalysis(evidence.id, file.originalname);
 
-    // 6. Record Audit Event
+    // 7. Record Audit Event
     await this.prisma.auditEvent.create({
       data: {
         claimId,
@@ -151,51 +234,209 @@ export class EvidenceService {
   }
 
   /**
-   * Internal worker to process AI analysis
+   * Worker delegating AI damage analysis and similarity retrieval to FastAPI ML-backend
    */
   private async processDamageAnalysis(evidenceId: string, filename: string) {
     try {
-      // Simulate fast inference or background processing
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      const detections = [
-        {
-          class: 'front_bumper_dent',
-          confidence: 0.94,
-          severity: 'MODERATE',
-          box: [120, 140, 480, 360],
-          areaPercentage: 18.5,
+      const evidence = await this.prisma.evidence.findUnique({
+        where: { id: evidenceId },
+        include: {
+          claim: {
+            include: {
+              assessment: true,
+              decisions: {
+                orderBy: { createdAt: 'desc' },
+                take: 1,
+              },
+            },
+          },
+          analysis: true,
+          matchedBy: {
+            include: {
+              matchedEvidence: {
+                select: { id: true, claimId: true },
+              },
+            },
+          },
         },
-        {
-          class: 'headlight_crack',
-          confidence: 0.88,
-          severity: 'MINOR',
-          box: [450, 160, 560, 240],
-          areaPercentage: 5.2,
-        },
-      ];
+      });
 
+      if (!evidence || !evidence.analysis) {
+        this.logger.warn(`Evidence or analysis record not found for ${evidenceId}`);
+        return;
+      }
+
+      // Record audit event for analysis start
+      await this.prisma.auditEvent.create({
+        data: {
+          claimId: evidence.claimId,
+          actorId: evidence.uploadedById,
+          action: 'AI_ANALYSIS_REQUESTED',
+          summary: `AI damage analysis requested for evidence: ${filename}`,
+          details: {
+            evidenceId: evidence.id,
+            filename,
+          },
+        },
+      });
+
+      // Gather exact matches and perceptual matches with their real matched claim IDs
+      const exactMatches = evidence.matchedBy
+        .filter((m) => m.matchType === 'EXACT_HASH' && m.matchedEvidence)
+        .map((m) => ({
+          evidenceId: m.matchedEvidenceId,
+          claimId: m.matchedEvidence.claimId,
+        }));
+
+      const perceptualMatches = evidence.matchedBy
+        .filter((m) => m.matchType === 'NEAR_DUPLICATE' && m.matchedEvidence)
+        .map((m) => ({
+          evidenceId: m.matchedEvidenceId,
+          claimId: m.matchedEvidence.claimId,
+          distance: m.distance ?? 0,
+        }));
+
+      // Delegate to FastAPI ML backend
+      const startTime = Date.now();
+      const aiResponse = await this.aiService.analyzeEvidence({
+        analysisId: evidence.analysis.id,
+        evidenceId: evidence.id,
+        claimId: evidence.claimId,
+        imageRef: evidence.storageKey,
+        imageUrl: evidence.publicUrl || undefined,
+        sha256: evidence.sha256 || undefined,
+        phash: evidence.phash || undefined,
+        hashMatches: {
+          exactMatches,
+          perceptualMatches,
+        },
+        options: {
+          damageDetection: true,
+          embeddingSimilarity: true,
+          topK: 5,
+        },
+      });
+      const inferenceMs = Date.now() - startTime;
+
+      // Update DamageAnalysis and Evidence status in database
       await this.prisma.$transaction([
         this.prisma.damageAnalysis.update({
           where: { evidenceId },
           data: {
-            status: 'COMPLETED',
-            modelName: 'EthioClaim-VisionAI',
-            modelVersion: 'v2.4.0',
-            detections,
-            inferenceMs: 245,
+            status: aiResponse.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
+            modelName: aiResponse.embedding?.model || 'EthioClaim-VisionAI',
+            modelVersion: aiResponse.embedding?.version || 'v1',
+            detections: {
+              damageDetections: aiResponse.damageDetections || [],
+              riskAssessment: aiResponse.riskAssessment,
+              warnings: aiResponse.warnings || [],
+              embedding: aiResponse.embedding,
+              ocrResult: aiResponse.ocrResult || null,
+            } as any,
+            inferenceMs,
+            errorCode: aiResponse.errorCode || null,
+            errorMessage: aiResponse.errorMessage || null,
           },
         }),
         this.prisma.evidence.update({
           where: { id: evidenceId },
           data: {
-            analysisStatus: 'COMPLETED',
+            analysisStatus: aiResponse.status === 'COMPLETED' ? 'COMPLETED' : 'FAILED',
           },
         }),
       ]);
 
-      this.logger.log(`Completed damage analysis for evidence ${evidenceId}`);
-    } catch (err) {
+      // Persist candidate visual vector matches discovered by Qdrant/FAISS
+      if (aiResponse.visualMatches && aiResponse.visualMatches.length > 0) {
+        for (const vm of aiResponse.visualMatches) {
+          if (vm.evidenceId && vm.evidenceId !== evidence.id) {
+            const existingMatch = await this.prisma.similarityMatch.findFirst({
+              where: {
+                sourceEvidenceId: evidence.id,
+                matchedEvidenceId: vm.evidenceId,
+              },
+            });
+            if (!existingMatch) {
+              await this.prisma.similarityMatch.create({
+                data: {
+                  sourceEvidenceId: evidence.id,
+                  matchedEvidenceId: vm.evidenceId,
+                  matchType: 'VISUAL_SIMILARITY',
+                  score: vm.similarity,
+                  distance: Math.round((1.0 - vm.similarity) * 100),
+                },
+              });
+            }
+          }
+        }
+      }
+
+      // Record AI_ANALYSIS_COMPLETED audit event
+      await this.prisma.auditEvent.create({
+        data: {
+          claimId: evidence.claimId,
+          actorId: evidence.uploadedById,
+          action: 'AI_ANALYSIS_COMPLETED',
+          summary: `AI damage analysis completed in ${inferenceMs}ms`,
+          details: {
+            evidenceId: evidence.id,
+            modelName: aiResponse.embedding?.model || 'EthioClaim-VisionAI',
+            modelVersion: aiResponse.embedding?.version || 'v1',
+            inferenceMs,
+            detectionsCount: aiResponse.damageDetections?.length || 0,
+            riskLabel: aiResponse.riskAssessment?.label,
+          },
+        },
+      });
+
+      // Record Audit Event if POTENTIAL_FRAUD risk flag triggered
+      if (aiResponse.riskAssessment?.label === 'POTENTIAL_FRAUD') {
+        await this.prisma.auditEvent.create({
+          data: {
+            claimId: evidence.claimId,
+            actorId: evidence.uploadedById,
+            action: 'AI_POTENTIAL_FRAUD_FLAGGED',
+            summary: `AI Screening flagged POTENTIAL_FRAUD: ${aiResponse.riskAssessment.reasons?.join('; ') || 'Cross-claim duplication detected'}`,
+            details: {
+              evidenceId: evidence.id,
+              riskAssessment: aiResponse.riskAssessment,
+              reasons: (aiResponse.riskAssessment as any)?.reasons || [],
+              matchedEvidenceIds: (aiResponse.riskAssessment as any)?.matchedEvidenceIds || [],
+              matchedClaimIds: (aiResponse.riskAssessment as any)?.matchedClaimIds || [],
+              requiresExaminerReview: true,
+            } as any,
+          },
+        });
+        this.logger.warn(
+          `AI flagged POTENTIAL_FRAUD for claim ${evidence.claimId} on evidence ${evidence.id}`,
+        );
+      }
+
+      // Alert if analysis completed AFTER an examiner decision was already recorded
+      const priorDecision =
+        (evidence.claim as any)?.decisions?.[0]?.decision ||
+        (['APPROVED', 'REJECTED', 'NEED_MORE_EVIDENCE'].includes(evidence.claim.status)
+          ? evidence.claim.status
+          : null);
+
+      if (priorDecision) {
+        await this.prisma.auditEvent.create({
+          data: {
+            claimId: evidence.claimId,
+            actorId: evidence.uploadedById,
+            action: 'AI_RESULT_POST_DECISION',
+            summary: `AI analysis completed after claim decision was already recorded (${priorDecision})`,
+            details: {
+              evidenceId: evidence.id,
+              priorDecision,
+              riskAssessment: aiResponse.riskAssessment,
+            } as any,
+          },
+        });
+      }
+
+      this.logger.log(`Completed ML damage analysis for evidence ${evidenceId}`);
+    } catch (err: any) {
       this.logger.error(`Damage analysis error for ${evidenceId}: ${err.message}`);
       await this.prisma.damageAnalysis.update({
         where: { evidenceId },
@@ -209,6 +450,29 @@ export class EvidenceService {
         where: { id: evidenceId },
         data: { analysisStatus: 'FAILED' },
       });
+
+      try {
+        const ev = await this.prisma.evidence.findUnique({
+          where: { id: evidenceId },
+          select: { claimId: true, uploadedById: true },
+        });
+        if (ev) {
+          await this.prisma.auditEvent.create({
+            data: {
+              claimId: ev.claimId,
+              actorId: ev.uploadedById,
+              action: 'AI_ANALYSIS_FAILED',
+              summary: `AI damage analysis failed: ${err.message}`,
+              details: {
+                evidenceId,
+                error: err.message,
+              },
+            },
+          });
+        }
+      } catch (auditErr: any) {
+        this.logger.error(`Failed to record AI_ANALYSIS_FAILED audit event: ${auditErr.message}`);
+      }
     }
   }
 
@@ -277,10 +541,9 @@ export class EvidenceService {
       throw new NotFoundException(`Evidence with ID ${evidenceId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Access restricted to this evidence record');
-    }
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
+    const detectionsObj = evidence.analysis?.detections as any;
     return {
       id: evidence.id,
       claimId: evidence.claimId,
@@ -299,9 +562,15 @@ export class EvidenceService {
             status: evidence.analysis.status,
             modelName: evidence.analysis.modelName,
             modelVersion: evidence.analysis.modelVersion,
-            detections: evidence.analysis.detections,
+            detections:
+              detectionsObj?.damageDetections ||
+              (Array.isArray(detectionsObj) ? detectionsObj : []),
+            riskAssessment: detectionsObj?.riskAssessment || null,
+            warnings: detectionsObj?.warnings || [],
+            ocrResult: detectionsObj?.ocrResult || null,
             inferenceMs: evidence.analysis.inferenceMs,
             errorCode: evidence.analysis.errorCode,
+            errorMessage: evidence.analysis.errorMessage,
           }
         : null,
       matchesCount: evidence.matchedBy.length,
@@ -322,9 +591,7 @@ export class EvidenceService {
       throw new NotFoundException(`Evidence file not found`);
     }
 
-    if (role === 'INTAKE_USER' && evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Permission denied for this evidence file');
-    }
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     const { stream, contentType } = await this.storageService.getFileStream(evidence.storageKey);
     return {
@@ -351,9 +618,7 @@ export class EvidenceService {
       throw new NotFoundException(`Evidence with ID ${evidenceId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Cannot delete evidence uploaded by another user');
-    }
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     if (evidence.claim.assessment && role !== 'ADMIN') {
       throw new ConflictException('Evidence cannot be deleted after examiner assessment');
@@ -390,9 +655,7 @@ export class EvidenceService {
       throw new NotFoundException(`Evidence with ID ${evidenceId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Access to analysis is restricted');
-    }
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     if (!evidence.analysis) {
       return {
@@ -401,17 +664,25 @@ export class EvidenceService {
         modelName: null,
         modelVersion: null,
         detections: [],
+        riskAssessment: null,
+        warnings: [],
+        ocrResult: null,
         inferenceMs: null,
         errorCode: null,
       };
     }
 
+    const detectionsObj = evidence.analysis.detections as any;
     return {
       evidenceId,
       status: evidence.analysis.status,
       modelName: evidence.analysis.modelName,
       modelVersion: evidence.analysis.modelVersion,
-      detections: evidence.analysis.detections || [],
+      detections:
+        detectionsObj?.damageDetections || (Array.isArray(detectionsObj) ? detectionsObj : []),
+      riskAssessment: detectionsObj?.riskAssessment || null,
+      warnings: detectionsObj?.warnings || [],
+      ocrResult: detectionsObj?.ocrResult || null,
       inferenceMs: evidence.analysis.inferenceMs,
       errorCode: evidence.analysis.errorCode,
       errorMessage: evidence.analysis.errorMessage,
@@ -434,6 +705,8 @@ export class EvidenceService {
     if (!evidence || evidence.deletedAt) {
       throw new NotFoundException(`Evidence with ID ${evidenceId} not found`);
     }
+
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     await this.prisma.evidence.update({
       where: { id: evidenceId },
@@ -492,9 +765,7 @@ export class EvidenceService {
       throw new NotFoundException(`Evidence with ID ${evidenceId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Access to matches is restricted');
-    }
+    await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     const matches = evidence.matchedBy.map((m) => ({
       matchedEvidenceId: m.matchedEvidenceId,
@@ -529,17 +800,20 @@ export class EvidenceService {
       throw new NotFoundException(`Analysis record with ID ${analysisId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && analysis.evidence.claim.createdById !== userId) {
-      throw new ForbiddenException('Access to analysis is restricted');
-    }
+    await this.verifyClaimAccess(analysis.evidence.claimId, userId, role);
 
+    const detectionsObj = analysis.detections as any;
     return {
       id: analysis.id,
       evidenceId: analysis.evidenceId,
       status: analysis.status,
       modelName: analysis.modelName,
       modelVersion: analysis.modelVersion,
-      detections: analysis.detections || [],
+      detections:
+        detectionsObj?.damageDetections || (Array.isArray(detectionsObj) ? detectionsObj : []),
+      riskAssessment: detectionsObj?.riskAssessment || null,
+      warnings: detectionsObj?.warnings || [],
+      ocrResult: detectionsObj?.ocrResult || null,
       inferenceMs: analysis.inferenceMs,
       errorCode: analysis.errorCode,
     };

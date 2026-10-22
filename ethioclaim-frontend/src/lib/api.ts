@@ -39,7 +39,7 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:3002/api/v1";
+  "http://localhost:3005/api/v1";
 
 // Create central Axios instance
 export const apiClient: AxiosInstance = axios.create({
@@ -76,6 +76,7 @@ import {
 
 export {
   isMockFallbackActive,
+  setMockFallbackActive,
   subscribeToMockFallbackState,
   bypassLoginAs,
   registerMockAccount,
@@ -89,7 +90,18 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    // Detect server unreachable, network connection failure, timeout, or 5xx server fault
+    const config = error.config;
+    const url = config?.url || "";
+    const method = (config?.method || "GET").toUpperCase();
+
+    // Critical: Auth endpoints (/auth/login, /auth/register, /auth/me) must NEVER silently mock fallback!
+    // Real auth failures (401 invalid password, 400 validation, 403) must be thrown directly.
+    const isAuthEndpoint =
+      url.includes("/auth/login") ||
+      url.includes("/auth/register") ||
+      url.includes("/auth/me");
+
+    // Detect genuine network connection outage, server unreachable, or 5xx server fault
     const isOfflineOrFault =
       !error.response ||
       error.code === "ERR_NETWORK" ||
@@ -97,13 +109,22 @@ apiClient.interceptors.response.use(
       (error.message && error.message.toLowerCase().includes("network error")) ||
       (error.response && error.response.status >= 500);
 
-    if (isOfflineOrFault && error.config) {
+    // Only allow mock fallback for non-auth requests when backend is truly offline/5xx
+    // For mutation methods (POST, PUT, PATCH, DELETE), only allow fallback if mock mode was already explicitly activated
+    const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
+    const allowMock =
+      !isAuthEndpoint &&
+      isOfflineOrFault &&
+      config &&
+      (!isMutation || isMockFallbackActive());
+
+    if (allowMock) {
       try {
         const fallbackData = await handleMockFallback({
-          method: error.config.method || "GET",
-          url: error.config.url || "",
-          data: error.config.data,
-          params: error.config.params,
+          method,
+          url,
+          data: config.data,
+          params: config.params,
         });
 
         // Return graceful synthetic Axios response matching schema
@@ -112,7 +133,7 @@ apiClient.interceptors.response.use(
           status: 200,
           statusText: "OK (Mock Fallback)",
           headers: {},
-          config: error.config,
+          config,
         };
       } catch (fallbackErr) {
         console.warn("Mock fallback dispatch error:", fallbackErr);
@@ -121,9 +142,8 @@ apiClient.interceptors.response.use(
 
     // Session expired or unauthorized
     if (error.response?.status === 401 && typeof window !== "undefined") {
-      // Don't auto-redirect on public health or login routes
-      const path = error.config?.url || "";
-      if (!path.includes("/auth/login") && !path.includes("/health")) {
+      // Don't auto-clear on login attempt failures
+      if (!url.includes("/auth/login") && !url.includes("/health")) {
         clearStoredSession();
       }
     }

@@ -43,18 +43,110 @@ function formatClaim(c: any) {
       }
     : null;
 
+  // Extract AI detections and risk assessment if evidence list is present
+  let aiSuggestedSeverity: string | null = null;
+  let aiRiskAssessment: any = null;
+  const allDetections: any[] = [];
+  const fraudReasons: string[] = [];
+  let isFraudFlag = false;
+  let hasPending = false;
+  let hasFailed = false;
+
+  const fraudEvent = c.auditEvents?.find((e: any) => e.action === 'AI_POTENTIAL_FRAUD_FLAGGED');
+  if (fraudEvent) {
+    isFraudFlag = true;
+    if (fraudEvent.details?.riskAssessment?.reasons) {
+      fraudReasons.push(...fraudEvent.details.riskAssessment.reasons);
+    } else if (fraudEvent.summary) {
+      fraudReasons.push(fraudEvent.summary);
+    }
+  }
+
+  if (Array.isArray(c.evidence)) {
+    for (const ev of c.evidence) {
+      if (ev.analysisStatus === 'PENDING' || ev.analysisStatus === 'PROCESSING') {
+        hasPending = true;
+      }
+      if (ev.analysisStatus === 'FAILED') {
+        hasFailed = true;
+      }
+
+      const det = ev.analysis?.detections as any;
+      if (det) {
+        const damageDetections = Array.isArray(det)
+          ? det
+          : Array.isArray(det.damageDetections)
+          ? det.damageDetections
+          : [];
+        allDetections.push(...damageDetections);
+
+        if (det.riskAssessment?.label === 'POTENTIAL_FRAUD') {
+          isFraudFlag = true;
+          if (Array.isArray(det.riskAssessment.reasons)) {
+            fraudReasons.push(...det.riskAssessment.reasons);
+          }
+        }
+      }
+    }
+  }
+
+  // Derive aiSuggestedSeverity from detections (SEVERE > MODERATE > MINOR)
+  const severityLevels = allDetections.map((d: any) => (d.severity || '').toUpperCase());
+  if (severityLevels.includes('SEVERE')) {
+    aiSuggestedSeverity = 'SEVERE';
+  } else if (severityLevels.includes('MODERATE')) {
+    aiSuggestedSeverity = 'MODERATE';
+  } else if (severityLevels.includes('MINOR')) {
+    aiSuggestedSeverity = 'MINOR';
+  }
+
+  // Derive aiRiskAssessment
+  if (isFraudFlag) {
+    aiRiskAssessment = {
+      label: 'POTENTIAL_FRAUD',
+      requiresExaminerReview: true,
+      reasons: Array.from(
+        new Set(fraudReasons.length ? fraudReasons : ['Potential duplicate or visual anomaly detected']),
+      ),
+    };
+  } else if (hasPending) {
+    aiRiskAssessment = {
+      label: 'PENDING',
+      requiresExaminerReview: false,
+      reasons: ['AI damage analysis and duplicate verification in progress'],
+    };
+  } else if (hasFailed) {
+    aiRiskAssessment = {
+      label: 'FAILED',
+      requiresExaminerReview: true,
+      reasons: ['One or more photos could not be processed by the vision model'],
+    };
+  } else if (c.evidence && c.evidence.length > 0) {
+    aiRiskAssessment = {
+      label: 'NO_FRAUD_INDICATORS_FOUND',
+      requiresExaminerReview: false,
+      reasons: ['No duplicate hashes or cross-claim anomalies identified'],
+    };
+  }
+
+  const claimantName = c.claimantFullName || 'Unknown Claimant';
+
   return {
     id: c.id,
     claimNumber: c.claimNumber,
     status: c.status,
     policyVerification: c.policyVerification,
     claimant: {
-      fullName: c.claimantFullName,
-      phone: c.claimantPhone,
+      name: claimantName,
+      fullName: claimantName,
+      phone: c.claimantPhone || '—',
       email: c.claimantEmail,
     },
+    claimantName,
+    claimantFullName: claimantName,
     vehicle: {
       plateNumber: c.vehiclePlateNumber,
+      plate: c.vehiclePlateNumber,
       make: c.vehicleMake,
       model: c.vehicleModel,
       year: c.vehicleYear,
@@ -62,10 +154,13 @@ function formatClaim(c: any) {
     },
     incident: {
       occurredAt: c.incidentOccurredAt,
+      incidentDate: c.incidentOccurredAt,
       location: c.incidentLocation,
       description: c.incidentDescription,
       incidentType: c.incidentType,
     },
+    incidentDate: c.incidentOccurredAt,
+    description: c.incidentDescription,
     policy: c.policy
       ? {
           id: c.policy.id,
@@ -74,8 +169,59 @@ function formatClaim(c: any) {
           insurer: c.policy.insurer,
         }
       : null,
-    evidenceCount: c._count?.evidence ?? 0,
+    policyNumber: c.policy?.policyNumber,
+    evidenceCount: c._count?.evidence ?? (c.evidence ? c.evidence.length : 0),
     assignedExaminer,
+    aiSuggestedSeverity,
+    aiRiskAssessment,
+    evidence: c.evidence
+      ? c.evidence.map((ev: any) => ({
+          id: ev.id,
+          claimId: ev.claimId,
+          originalName: ev.originalName,
+          filename: ev.originalName,
+          originalFilename: ev.originalName,
+          mimeType: ev.mimeType,
+          sizeBytes: Number(ev.sizeBytes),
+          storageKey: ev.storageKey,
+          publicUrl: ev.publicUrl,
+          url: ev.publicUrl,
+          sha256: ev.sha256,
+          phash: ev.phash,
+          caption: ev.caption,
+          evidenceType: ev.evidenceType,
+          analysisStatus: ev.analysisStatus,
+          uploadedById: ev.uploadedById,
+          createdAt: ev.createdAt,
+          analysis: ev.analysis
+            ? {
+                id: ev.analysis.id,
+                status: ev.analysis.status,
+                modelName: ev.analysis.modelName,
+                modelVersion: ev.analysis.modelVersion,
+                detections:
+                  (ev.analysis.detections as any)?.damageDetections ||
+                  (Array.isArray(ev.analysis.detections) ? ev.analysis.detections : []),
+                riskAssessment: (ev.analysis.detections as any)?.riskAssessment || null,
+                warnings: (ev.analysis.detections as any)?.warnings || [],
+                inferenceMs: ev.analysis.inferenceMs,
+                errorCode: ev.analysis.errorCode,
+                errorMessage: ev.analysis.errorMessage,
+              }
+            : null,
+          matches: ev.matchedBy
+            ? ev.matchedBy.map((m: any) => ({
+                id: m.id,
+                matchedEvidenceId: m.matchedEvidenceId,
+                matchType: m.matchType,
+                score: m.score ? Number(m.score) : undefined,
+                distance: m.distance,
+                matchedClaimId: m.matchedEvidence?.claimId,
+                matchedClaimNumber: m.matchedEvidence?.claim?.claimNumber,
+              }))
+            : [],
+        }))
+      : undefined,
     assessment: c.assessment
       ? {
           id: c.assessment.id,
@@ -93,6 +239,20 @@ function formatClaim(c: any) {
           createdAt: c.assessment.createdAt,
         }
       : null,
+    decisions: c.decisions,
+    timeline: c.auditEvents
+      ? c.auditEvents.map((a: any) => ({
+          id: a.id,
+          claimId: a.claimId,
+          action: a.action,
+          summary: a.summary,
+          details: a.details,
+          actor: a.actor
+            ? { id: a.actor.id, name: a.actor.name, role: a.actor.role, email: a.actor.email }
+            : a.actorId,
+          createdAt: a.createdAt,
+        }))
+      : undefined,
     createdById: c.createdById,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
@@ -177,6 +337,36 @@ export class ClaimsService {
     };
   }
 
+  async isClaimAssignedToExaminer(claimId: string, examinerId: string): Promise<boolean> {
+    // 1. Check latest EXAMINER_ASSIGNED audit event
+    const latestAssign = await this.prisma.auditEvent.findFirst({
+      where: {
+        claimId,
+        action: 'EXAMINER_ASSIGNED',
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (latestAssign && latestAssign.details) {
+      const details = latestAssign.details as any;
+      if (details.examinerId) {
+        return details.examinerId === examinerId;
+      }
+    }
+
+    // 2. Check assessment examiner
+    const assessment = await this.prisma.examinerAssessment.findUnique({
+      where: { claimId },
+      select: { examinerId: true },
+    });
+
+    if (assessment) {
+      return assessment.examinerId === examinerId;
+    }
+
+    return false;
+  }
+
   async findAll(
     userId: string,
     userRole: string,
@@ -199,6 +389,42 @@ export class ClaimsService {
     // Scope results by role
     if (userRole === 'INTAKE_USER') {
       where.createdById = userId;
+    } else if (userRole === 'EXAMINER') {
+      // Find all claims assigned to this examiner
+      // 1. Claims with assessment by this examiner
+      const assessedClaims = await this.prisma.examinerAssessment.findMany({
+        where: { examinerId: userId },
+        select: { claimId: true },
+      });
+      const assessedClaimIds = assessedClaims.map((a) => a.claimId);
+
+      // 2. Claims with EXAMINER_ASSIGNED audit events
+      const assignEvents = await this.prisma.auditEvent.findMany({
+        where: { action: 'EXAMINER_ASSIGNED' },
+        orderBy: { createdAt: 'desc' },
+        select: { claimId: true, details: true },
+      });
+
+      // Track latest assignment per claim
+      const claimLatestAssignMap = new Map<string, string>();
+      for (const ev of assignEvents) {
+        if (ev.claimId && !claimLatestAssignMap.has(ev.claimId)) {
+          const det = ev.details as any;
+          if (det?.examinerId) {
+            claimLatestAssignMap.set(ev.claimId, det.examinerId);
+          }
+        }
+      }
+
+      const assignedEventClaimIds: string[] = [];
+      for (const [cId, exId] of claimLatestAssignMap.entries()) {
+        if (exId === userId) {
+          assignedEventClaimIds.push(cId);
+        }
+      }
+
+      const allAssignedIds = Array.from(new Set([...assessedClaimIds, ...assignedEventClaimIds]));
+      where.id = { in: allAssignedIds };
     }
 
     if (query.status) {
@@ -239,6 +465,19 @@ export class ClaimsService {
             orderBy: { createdAt: 'desc' },
             take: 1,
           },
+          evidence: {
+            where: { deletedAt: null },
+            include: {
+              analysis: true,
+              matchedBy: {
+                include: {
+                  matchedEvidence: {
+                    select: { id: true, claimId: true, claim: { select: { claimNumber: true } } },
+                  },
+                },
+              },
+            },
+          },
           _count: { select: { evidence: true } },
         },
       }),
@@ -266,9 +505,26 @@ export class ClaimsService {
           },
         },
         auditEvents: {
-          where: { action: 'EXAMINER_ASSIGNED' },
           orderBy: { createdAt: 'desc' },
-          take: 1,
+          include: {
+            actor: { select: { id: true, name: true, email: true, role: true } },
+          },
+        },
+        evidence: {
+          where: { deletedAt: null },
+          include: {
+            analysis: true,
+            matchedBy: {
+              include: {
+                matchedEvidence: {
+                  select: { id: true, claimId: true, claim: { select: { claimNumber: true } } },
+                },
+              },
+            },
+          },
+        },
+        decisions: {
+          orderBy: { createdAt: 'desc' },
         },
         _count: { select: { evidence: true } },
       },
@@ -278,6 +534,13 @@ export class ClaimsService {
 
     if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
       throw new ForbiddenException('Access denied to this claim');
+    }
+
+    if (userRole === 'EXAMINER') {
+      const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+      }
     }
 
     return formatClaim(claim);

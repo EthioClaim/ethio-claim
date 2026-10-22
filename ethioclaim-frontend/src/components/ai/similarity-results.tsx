@@ -20,11 +20,23 @@ const MATCH_TYPE_CONFIG: Record<
     color: "#FF9F0A",
     desc: "Low Hamming distance perceptual image match",
   },
+  NEAR_DUPLICATE: {
+    label: "pHash Near-Duplicate",
+    badge: "bg-[#FF9F0A]/15 text-[#FFD60A] border border-[#FF9F0A]/30",
+    color: "#FF9F0A",
+    desc: "Perceptual hash match with low Hamming distance",
+  },
   EMBEDDING_SIMILARITY: {
     label: "Visual Neighbor Search",
     badge: "bg-[#BF5AF2]/15 text-[#E39FF6] border border-[#BF5AF2]/30",
     color: "#BF5AF2",
     desc: "Dense vector visual embedding cosine similarity",
+  },
+  VISUAL_SIMILARITY: {
+    label: "Visual Vector Match",
+    badge: "bg-[#BF5AF2]/15 text-[#E39FF6] border border-[#BF5AF2]/30",
+    color: "#BF5AF2",
+    desc: "High cosine similarity in vector embedding space",
   },
 };
 

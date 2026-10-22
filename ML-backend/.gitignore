@@ -1,0 +1,90 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables & secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.cert
+
+# Testing & quality assurance
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.mypy_cache/
+.ruff_cache/
+
+# Machine Learning models, weights, and embeddings
+models/
+weights/
+checkpoints/
+*.pt
+*.pth
+*.onnx
+*.bin
+*.h5
+*.tflite
+*.safetensors
+*.pkl
+*.pickle
+
+# Datasets and local image processing storage
+data/
+datasets/
+uploads/
+temp/
+tmp/
+
+# Logs and debugging
+*.log
+logs/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDEs & OS metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
