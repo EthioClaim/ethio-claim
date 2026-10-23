@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  INTAKE_USER
+  EXAMINER
+  ADMIN
+}
+
+enum PolicyStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+  SUSPENDED
+  UNKNOWN
+}
+
+enum ClaimStatus {
+  DRAFT
+  SUBMITTED
+  POLICY_UNVERIFIED
+  PROCESSING
+  READY_FOR_REVIEW
+  UNDER_REVIEW
+  NEED_MORE_EVIDENCE
+  ASSESSED
+  APPROVED
+  REJECTED
+  CLOSED
+}
+
+enum AnalysisStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum Severity {
+  MINOR
+  MODERATE
+  SEVERE
+  UNDETERMINED
+}
+
+enum MatchType {
+  EXACT_HASH
+  NEAR_DUPLICATE
+  VISUAL_SIMILARITY
+}
+
+enum IncidentType {
+  COLLISION
+  THEFT
+  VANDALISM
+  NATURAL_EVENT
+  OTHER
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(INTAKE_USER)
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  createdClaims Claim[]             @relation("ClaimCreator")
+  assessments   ExaminerAssessment[]
+  auditEvents   AuditEvent[]
+}
+
+model Policy {
+  id                    String       @id @default(uuid()) @db.Uuid
+  policyNumber          String       @unique
+  normalizedPolicyNumber String      @unique
+  status                PolicyStatus @default(ACTIVE)
+  holderName            String?
+  vehicleRegistration   String?
+  vehicleMake           String?
+  vehicleModel          String?
+  insurer               String?
+  validFrom             DateTime?
+  validTo               DateTime?
+  coverageAmount        Decimal?     @db.Decimal(14, 2)
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+
+  claims Claim[]
+}
+
+model Claim {
+  id                String      @id @default(uuid()) @db.Uuid
+  claimNumber       String      @unique
+  status            ClaimStatus @default(SUBMITTED)
+  policyVerification String     @default("PENDING")
+
+  // Claimant info
+  claimantFullName  String
+  claimantPhone     String?
+  claimantEmail     String?
+
+  // Vehicle info
+  vehiclePlateNumber String?
+  vehicleMake        String?
+  vehicleModel       String?
+  vehicleYear        Int?
+  vehicleVin         String?
+
+  // Incident info
+  incidentOccurredAt  DateTime?
+  incidentLocation    String?
+  incidentDescription String?   @db.Text
+  incidentType        IncidentType @default(OTHER)
+
+  // Relations
+  policyId    String?  @db.Uuid
+  policy      Policy?  @relation(fields: [policyId], references: [id])
+  createdById String   @db.Uuid
+  createdBy   User     @relation("ClaimCreator", fields: [createdById], references: [id])
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  evidence    Evidence[]
+  assessment  ExaminerAssessment?
+  auditEvents AuditEvent[]
+  decisions   ClaimDecision[]
+}
+
+model Evidence {
+  id             String         @id @default(uuid()) @db.Uuid
+  claimId        String         @db.Uuid
+  claim          Claim          @relation(fields: [claimId], references: [id])
+  originalName   String
+  mimeType       String
+  sizeBytes      BigInt
+  storageKey     String         // S3/storage path
+  publicUrl      String?        // URL returned after upload
+  sha256         String?
+  phash          String?
+  caption        String?
+  evidenceType   String?
+  analysisStatus AnalysisStatus @default(PENDING)
+  deletedAt      DateTime?
+  uploadedById   String         @db.Uuid
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  analysis    DamageAnalysis?
+  matchedBy   SimilarityMatch[] @relation("SourceEvidence")
+  matchedWith SimilarityMatch[] @relation("MatchedEvidence")
+}
+
+model DamageAnalysis {
+  id           String         @id @default(uuid()) @db.Uuid
+  evidenceId   String         @unique @db.Uuid
+  evidence     Evidence       @relation(fields: [evidenceId], references: [id])
+  status       AnalysisStatus @default(PENDING)
+  modelName    String?
+  modelVersion String?
+  detections   Json?          // Array of detection results
+  inferenceMs  Int?
+  errorCode    String?
+  errorMessage String?        @db.Text
+  retriedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model SimilarityMatch {
+  id                String    @id @default(uuid()) @db.Uuid
+  sourceEvidenceId  String    @db.Uuid
+  sourceEvidence    Evidence  @relation("SourceEvidence", fields: [sourceEvidenceId], references: [id])
+  matchedEvidenceId String    @db.Uuid
+  matchedEvidence   Evidence  @relation("MatchedEvidence", fields: [matchedEvidenceId], references: [id])
+  matchType         MatchType
+  score             Decimal?  @db.Decimal(5, 4)
+  distance          Int?
+  createdAt         DateTime  @default(now())
+}
+
+model ExaminerAssessment {
+  id               String    @id @default(uuid()) @db.Uuid
+  claimId          String    @unique @db.Uuid
+  claim            Claim     @relation(fields: [claimId], references: [id])
+  severity         Severity  @default(UNDETERMINED)
+  estimatedLossEtb Decimal?  @db.Decimal(14, 2)
+  currency         String    @default("ETB")
+  notes            String?   @db.Text
+  examinerId       String    @db.Uuid
+  examiner         User      @relation(fields: [examinerId], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model ClaimDecision {
+  id        String   @id @default(uuid()) @db.Uuid
+  claimId   String   @db.Uuid
+  claim     Claim    @relation(fields: [claimId], references: [id])
+  decision  String
+  reason    String?  @db.Text
+  actorId   String   @db.Uuid
+  createdAt DateTime @default(now())
+}
+
+model AuditEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  claimId   String?  @db.Uuid
+  claim     Claim?   @relation(fields: [claimId], references: [id])
+  actorId   String   @db.Uuid
+  actor     User     @relation(fields: [actorId], references: [id])
+  action    String
+  summary   String?
+  details   Json?
+  createdAt DateTime @default(now())
+}
