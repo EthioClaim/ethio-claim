@@ -1,533 +1,384 @@
-# EthioClaim — Evidence Workflow, Examiner Lifecycle, and Unified ML Backend Integration
+# EthioClaim — Diagnose AI Analysis and Fix Examiner Evidence Inspection
 
-## 1. Role and Objective
+## Objective
 
-Act as a senior full-stack engineer and ML engineer working directly on the existing **EthioClaim** repository.
+The AI analysis service appears to return `POTENTIAL_FRAUD` for every uploaded image, with visual similarity scores around 98–99%. Additionally, uploaded evidence is still not appearing in the examiner's inspection interface.
 
-Your task is to implement the requirements below across the frontend, NestJS backend, database, and ML backend. Investigate the current implementation, identify root causes, make the necessary code changes, and verify that the entire workflow works end to end.
+**Investigate the actual root causes, fix both problems end to end, and verify the fixes using real tests. Do not merely change the displayed risk label, lower a similarity threshold arbitrarily, or hide the error with mock data.**
 
-**Do not merely describe what needs to be done. Implement the changes, run the available tests, fix regressions, and report the actual results.**
-
-You are authorized to run terminal commands, inspect the repository, install necessary dependencies, create or modify files, run migrations and tests, and remove files confirmed to be obsolete and safe to delete. Do not ask for permission before ordinary development commands.
-
-### Non-negotiable rules
-
-- Inspect the existing implementation before changing it.
-- Preserve working functionality and follow the existing architecture wherever possible.
-- Modify the frontend, NestJS backend, and ML backend together where necessary.
-- Enforce authorization on the backend, not only in the UI.
-- Reuse existing database fields, enums, models, services, and endpoints where possible.
-- Do not introduce duplicate status fields or competing implementations without a demonstrated need.
-- Never fabricate AI predictions, damage detections, fraud results, or successful test outcomes.
-- When the backend and database are available, use real persisted data. Do not silently substitute mock data for broken endpoints.
-- Preserve existing model weights, datasets, labels, configuration, and preprocessing logic during ML integration.
-- Do not stop after making a plan. Implement and test the changes.
+You are authorized to inspect and modify the frontend, NestJS backend, FastAPI/ML backend, database schema and migrations, vector database integration, and configuration. You may run terminal commands, install required packages, execute database queries and migrations, and create or modify files as needed.
 
 ---
 
-## 2. Evidence Upload and Navigation
+## 1. Diagnose and fix the AI analysis results
 
-### Required behavior
+### Current observed behavior
 
-When a claimant successfully uploads evidence for an existing claim:
+The service repeatedly returns results similar to these:
 
-1. Validate and upload the evidence using the existing frontend and backend architecture.
-2. Ensure NestJS persists the evidence record and safely stores the image.
-3. Schedule AI analysis in the background.
-4. Return the user to `/claims` immediately after the upload and scheduling operation succeeds.
-5. Display a success notification indicating that the evidence was submitted and AI analysis is processing.
-6. Show the current claim/evidence processing status on the claims page.
-7. If the upload fails, remain on the current page and display a meaningful error.
-8. Prevent duplicate submissions while the upload is in progress.
+```json
+{
+  "modelName": "ethio-vision-encoder",
+  "riskLabel": "POTENTIAL_FRAUD",
+  "evidenceId": "5aa75b5e-6e1d-40b8-a7a0-6f763c90acd9",
+  "inferenceMs": 9095,
+  "modelVersion": "v1",
+  "detectionsCount": 3
+}
+```
 
-The upload request must not wait for the entire AI inference, embedding generation, or vector-search process to finish.
+The risk assessment also repeatedly reports:
 
-Before implementing navigation, inspect the existing routing structure and determine how the uploaded evidence relates to its claim. Preserve the correct claim association throughout the workflow.
+```json
+{
+  "reasons": [
+    "High visual vector similarity detected against historical claim evidence (98.7% match with Claim c1.., 98.7% match with Claim c200-tes.., 98.5% match with Claim c100-tes..)."
+  ],
+  "evidenceId": "5aa75b5e-6e1d-40b8-a7a0-6f763c90acd9",
+  "riskAssessment": {
+    "label": "POTENTIAL_FRAUD",
+    "score": null,
+    "reasons": [
+      "High visual vector similarity detected against historical claim evidence (98.7% match with Claim c1.., 98.7% match with Claim c200-tes.., 98.5% match with Claim c100-tes..)."
+    ],
+    "ruleVersion": "rules-v1",
+    "requiresExaminerReview": true
+  },
+  "matchedClaimIds": [],
+  "matchedEvidenceIds": [],
+  "requiresExaminerReview": true
+}
+```
 
-### Acceptance criteria
+These results raise several concerns:
 
-- Successful upload returns the user to `/claims`.
-- Evidence is persisted before the frontend reports success.
-- AI processing starts automatically in the background.
-- The claims page displays the appropriate status.
-- Failed uploads do not falsely report success or navigate away.
+- Almost every image is classified as potentially fraudulent.
+- The reported similarity percentages are consistently extremely high.
+- The response contains similarity explanations but empty `matchedClaimIds` and `matchedEvidenceIds`.
+- `riskAssessment.score` is `null`.
+- `detectionsCount` is always or frequently the same, regardless of image content.
+- The service may be comparing an image against itself, returning duplicate vectors, using a broken similarity calculation, or retrieving irrelevant historical evidence.
+- The model may be producing embeddings without actually performing the intended damage detection.
+- The API response may be generated by fallback logic, hardcoded rules, stale records, or incorrect result mapping rather than genuine inference.
+
+These are hypotheses to investigate, not assumptions. Determine which explanations are supported by the implementation and test results.
+
+### 1.1 Inspect the complete inference pipeline
+
+Trace one uploaded image through the entire pipeline:
+
+1. Evidence upload in the frontend.
+2. NestJS evidence record creation and storage.
+3. NestJS request to FastAPI.
+4. FastAPI image retrieval or decoding.
+5. Image preprocessing and model inference.
+6. Damage detection output.
+7. Image embedding generation.
+8. Qdrant vector insertion and similarity search.
+9. Similarity score calculation and matching evidence metadata.
+10. Risk assessment rule evaluation.
+11. FastAPI response serialization.
+12. NestJS persistence and API response.
+13. Frontend rendering of the final analysis.
+
+Identify the exact stage where the result becomes incorrect. Inspect actual code, configuration, logs, database records, and vector search results rather than guessing.
+
+### 1.2 Test whether the model performs real inference
+
+Verify all of the following:
+
+- The configured model and model weights actually load successfully.
+- The model is not silently replaced by a dummy encoder, random embeddings, constant output, or mock response.
+- The image preprocessing matches the model's training and inference requirements.
+- The correct image bytes are passed into the model.
+- Different input images can produce meaningfully different embeddings when expected.
+- Damage detection uses an actual detector or a clearly defined supported inference method.
+- `detectionsCount` represents genuine detection results rather than a hardcoded count, number of image regions, or unrelated value.
+- Confidence values, class labels, bounding boxes, and damage categories are mapped correctly when supported by the model.
+- Inference failures are reported explicitly and are not converted into successful-looking fraud results.
+
+Do not claim that the service detects vehicle damage merely because an image encoder successfully returns a vector. If the existing model only produces embeddings, distinguish image similarity from actual damage detection and integrate or correctly configure a real damage detector if one is already available in the project.
+
+Inspect the existing `ML/` and `ML-backend/` directories and consolidate their functionality appropriately if duplicate or conflicting implementations are contributing to this problem. Preserve working models, weights, preprocessing, configuration, and functionality.
+
+### 1.3 Verify image embedding correctness
+
+Inspect the embedding generation and vector search implementation.
+
+Check:
+
+- Embedding dimensionality and consistency between the encoder and Qdrant collection.
+- Whether embeddings are normalized and whether the selected distance metric matches that normalization.
+- Whether the similarity score is calculated correctly from the actual returned distance.
+- Whether the API incorrectly interprets a distance as a similarity percentage.
+- Whether unrelated images are receiving nearly identical vectors.
+- Whether embeddings are accidentally reused, cached under the wrong key, or generated from the same input.
+- Whether the image decoder or preprocessing pipeline returns the same image content for different uploads.
+- Whether Qdrant contains duplicate vectors or stale test data.
+- Whether the collection has the expected vector configuration and model version.
+
+Use actual vectors, distances, and metadata to verify the calculations. Do not arbitrarily reduce the reported percentage or change the threshold simply to make the results look reasonable.
+
+### 1.4 Fix self-matching and invalid historical matches
+
+Ensure the similarity search compares newly uploaded evidence against valid, previously stored evidence.
+
+- Exclude the current evidence record and its vector from historical search results.
+- Exclude the same evidence uploaded under another identifier if the underlying content is identical, where appropriate.
+- Check whether the current vector is being inserted into Qdrant before the search and then returned as its own nearest neighbor.
+- Inspect historical test records such as `c1..`, `c200-tes..`, and `c100-tes..`. Determine whether they are legitimate evidence records or seed/test data.
+- Verify that each Qdrant result maps to an actual evidence record in PostgreSQL.
+- Ensure search results are scoped to the correct insurer or authorized tenant. Do not expose another insurer's evidence to an examiner.
+- Ensure `matchedClaimIds` and `matchedEvidenceIds` contain the actual matched record IDs when matches exist, and are empty only when there are no valid matches.
+- Return enough match metadata for an authorized examiner to inspect the relevant historical evidence, subject to authorization rules.
+
+Do not automatically delete historical vectors or database records. First determine whether they are valid production data, development fixtures, or orphaned records. Clean up invalid development data only when safe and clearly identified.
+
+### 1.5 Correct the risk assessment logic
+
+Separate these concepts:
+
+1. **Damage detection:** What damage, if any, does the model detect in the submitted image?
+2. **Visual similarity:** How similar is the image to previously submitted evidence?
+3. **Exact or near-duplicate detection:** Is the same image or substantially the same visual content already present?
+4. **Risk assessment:** Does the available evidence warrant further examination?
+5. **Examiner decision:** What action should the authorized human examiner take?
+
+Do not treat high visual similarity alone as conclusive proof of fraud. Two legitimate claims may involve similar vehicle models, damage patterns, angles, or backgrounds.
+
+Use the existing project requirements and configuration to establish appropriate rules for exact duplicates, near-duplicates, historical visual similarity, and damage detection. Make thresholds configurable and document how they are validated.
+
+Required behavior:
+
+- **Exact duplicate:** Flag the evidence for examiner review and provide the matched evidence and claim references.
+- **Strong near-duplicate:** Flag it for examiner review with the actual similarity score and inspectable match references.
+- **Ordinary visual similarity:** Do not automatically label the submission fraudulent merely because the image looks similar to historical evidence.
+- **No detected damage:** Flag it for examiner cross-checking. Do not automatically reject the claim.
+- **Damage detected without a meaningful duplicate match:** Allow the claim to proceed to the examiner queue as `Submitted`, subject to other valid workflow rules.
+- **Model unavailable or inference failure:** Report an explicit processing failure or retryable status. Never fabricate a successful result or default to `POTENTIAL_FRAUD`.
+- **Uncertain or unsupported result:** Represent the uncertainty honestly and route it for human review.
+
+Do not implement automatic claim approval or rejection. The examiner remains responsible for the final assessment.
+
+### 1.6 Correct the API response contract
+
+Investigate why the service returns a `null` risk score and empty match arrays despite listing matched claims in the explanation.
+
+Define and enforce a consistent response contract across FastAPI, NestJS, and the frontend.
+
+The contract should include, where supported:
+
+- Evidence ID.
+- Model name and version.
+- Analysis status.
+- Damage detections, including supported classes, confidence values, and bounding boxes.
+- Whether damage was detected.
+- Similarity matches containing actual evidence IDs, claim IDs, scores, and match types.
+- Risk label and a valid risk score or an explicitly documented nullable score.
+- Reasons for the risk assessment.
+- Whether examiner review is required.
+- Inference duration.
+- Processing errors when applicable.
+
+Use the actual schema and supported model outputs. Do not invent confidence scores, damage detections, or match records just to fill response fields.
+
+Update API validation, TypeScript interfaces, persistence, and frontend rendering to use the same contract. Preserve compatibility where possible, and document any necessary API changes.
 
 ---
 
-## 3. AI Processing and Evidence Classification
+## 2. Build a meaningful AI test suite
 
-Implement a reliable asynchronous workflow that updates the claim/evidence state after the AI analysis finishes.
+Do not test only by repeatedly uploading the same image. Create or identify a controlled test set with known expected behavior.
 
-First, inspect the existing database schema, status enums, `DamageAnalysis` model, evidence-upload service, and ML integration. Reuse existing structures where appropriate.
+Use available legitimate sample data and existing project assets. Do not fabricate test results or represent unverified samples as ground truth.
 
-### Required status flags
+At minimum, test the following cases:
 
-The system must clearly distinguish these states:
+| Test case | Expected behavior |
+|---|---|
+| Same image uploaded twice | Exact duplicate detected, with correct matched record references |
+| Same image under a different filename | Duplicate detection still works if the underlying bytes are identical |
+| Resized or recompressed copy of an image | Near-duplicate detection is evaluated correctly |
+| Different image of a similar vehicle | Similarity alone does not automatically establish fraud |
+| Image showing visible vehicle damage | Detector returns its actual supported detections |
+| Image with no visible vehicle damage | No-damage result is handled according to the model's capabilities and examiner-review rules |
+| Unrelated image | Must not be marked fraudulent solely because the vector search returns a high score |
+| Invalid or corrupt image | Clear validation or inference error |
+| Empty or unavailable vector collection | Analysis completes according to documented behavior without fabricated matches |
+| Model unavailable | Explicit failure or retryable state, not a fabricated risk assessment |
+| Missing or stale vector metadata | Graceful handling without invented claim/evidence references |
+| Evidence from a different insurer | Must not appear in unauthorized similarity results |
 
-**AI Processing**
+For every test, inspect the raw model output, embedding, vector search response, calculated similarity, risk assessment, persisted database state, and final API response.
 
-Evidence has been successfully uploaded, but AI analysis is pending or running.
-
-**Fraud Review**
-
-The system detected a configured duplicate or suspicious similarity signal involving previous evidence. The claim requires examiner review.
-
-**No Damage Detected**
-
-The model detected no damage in the submitted evidence. The examiner must cross-check the evidence and determine whether it is sufficient.
-
-**Submitted**
-
-AI analysis completed successfully, no configured fraud-review condition was triggered, and the claim is ready for the assigned examiner's queue.
-
-**Need More Evidence**
-
-The examiner requested additional evidence from the claimant.
-
-**Under Review**
-
-The examiner has started reviewing the claim.
-
-**Assessed**
-
-The examiner submitted an assessment. The claim is ready for authorized administrative review.
-
-Use existing enum values if equivalent states already exist. Add new enum values or database fields only when necessary, and include the appropriate migration.
-
-Do not combine AI processing status, AI risk classification, and claim workflow status into one field if the current architecture can represent them separately.
-
-### Required AI processing workflow
-
-1. The claimant uploads evidence.
-2. NestJS validates the request, computes the existing hashes, stores the evidence, and creates or updates the analysis record.
-3. NestJS schedules AI analysis without blocking the upload response on inference.
-4. The frontend returns to `/claims`.
-5. The claim/evidence displays **AI Processing** while the analysis is pending or running.
-6. The frontend retrieves updated analysis results using the existing polling, refresh, or notification mechanism.
-7. Once the analysis finishes, the backend persists the results and the UI updates automatically.
-
-### Result A: Previous evidence matches
-
-If the evidence matches previous evidence according to the configured duplicate-detection rules:
-
-- Flag the claim as **Fraud Review**, or use the existing equivalent status/flag.
-- Persist the reason for the flag and the matching evidence references.
-- Display the flag prominently to the examiner.
-- Allow the examiner to inspect the matched evidence when authorized.
-- Preserve the similarity type, score, and relevant metadata returned by the existing detection system.
-- Record the event in the audit log.
-
-A duplicate or similarity match is a review signal, not proof of fraud. **Never automatically reject a claim solely because a match was found.**
-
-Use the existing signals appropriately:
-
-- SHA-256 for exact file-content matches.
-- Perceptual hashing for likely visual matches after transformations such as resizing or recompression.
-- ML embeddings and vector search for visually similar evidence.
-
-Reuse existing duplicate-detection functionality rather than implementing a competing system.
-
-### Result B: No damage detected
-
-If the model genuinely supports determining that no damage is present:
-
-- Set the appropriate **No Damage Detected** flag.
-- Make the result visible to the examiner.
-- Include the model result and relevant explanation or confidence information, if available.
-- Require the examiner to cross-check the evidence.
-- Do not automatically reject, approve, or close the claim.
-
-Inspect the model's actual classes and inference logic before implementing this behavior. If the model cannot reliably distinguish no damage from an unsupported or inconclusive result, do not invent a prediction. Report the limitation and implement only what the model actually supports.
-
-### Result C: Analysis completed without a configured fraud flag
-
-If the analysis completes successfully, no configured duplicate/fraud-review condition applies, and the result is usable:
-
-- Mark the claim/evidence as **Submitted**, using the appropriate existing lifecycle mapping.
-- Ensure the claim becomes visible in the assigned examiner's queue.
-- Persist the analysis and status changes.
-- Display the updated status on `/claims`.
-
-### Result D: Analysis fails or is inconclusive
-
-If AI processing fails, times out, or produces an inconclusive result:
-
-- Preserve the uploaded evidence and claim.
-- Display the real failure or inconclusive status.
-- Record the error appropriately without exposing sensitive internals to the frontend.
-- Support retry or examiner review according to the existing workflow.
-- Do not falsely label the claim as Submitted, Fraud Review, or No Damage Detected.
-
-### Multiple findings
-
-If an image both matches previous evidence and contains no detectable damage, preserve both findings where possible. Fraud Review should remain prominent, but the no-damage finding must not be discarded.
-
-Late AI responses must never silently overwrite examiner assessments or final claim decisions.
+Report the test outcomes with actual observed values. If no suitable labeled dataset exists to validate detection accuracy, state that limitation and separate basic pipeline tests from model-quality evaluation.
 
 ---
 
-## 4. Examiner Access to `/evidence`
+## 3. Fix uploaded evidence visibility in the examiner interface
 
-Evidence upload is the claimant's responsibility, not the examiner's.
+**This is a separate required fix. Even if AI analysis works correctly, examiners must be able to view the submitted evidence.**
 
-When a user with the **Examiner** role visits `/evidence`:
+Currently, uploaded evidence is not appearing for inspection. Trace this issue from database persistence through the backend API to the frontend page and fix the root cause.
 
-- Do not display an upload button, upload form, or other evidence-submission control.
-- Allow the examiner to view evidence attached to claims assigned to them.
-- Display evidence metadata, thumbnails or previews where supported, and the associated AI analysis results.
-- Show the relevant AI Processing, Fraud Review, and No Damage Detected flags.
-- Allow the examiner to open matching evidence only when authorized to access the associated claim.
-- Provide proper loading, empty, and error states.
+### 3.1 Inspect the evidence persistence and retrieval path
 
-### Backend enforcement
+Verify:
 
-Do not rely on frontend visibility alone.
+- Evidence is successfully persisted when a claimant uploads an image.
+- The evidence record references the correct claim.
+- The claim belongs to the correct insurer and is assigned to the correct examiner.
+- The examiner's evidence-list endpoint retrieves evidence associated with their assigned claims.
+- The API returns the necessary evidence metadata, claim information, and usable image access information.
+- The frontend requests the correct endpoint using the correct authentication and query parameters.
+- API response fields match the frontend's TypeScript types.
+- Pagination, filters, status filters, and default sorting do not accidentally hide uploaded evidence.
+- The frontend does not rely on a public image URL when the application uses private object storage.
+- Image URLs, storage keys, signed URLs, and authorization checks work correctly.
+- CORS, expired signed URLs, image loading errors, and backend authorization failures are handled correctly.
+- The page does not silently replace real API data with an empty array when a request fails.
 
-- Inspect the current role and permission model.
-- Reject evidence-upload requests from examiners at the NestJS authorization layer unless the existing policy explicitly grants that permission.
-- Enforce claim-assignment checks on evidence list, detail, download, and AI-result endpoints.
-- Prevent an examiner from accessing another examiner's evidence by modifying an ID, URL, or query parameter.
-- Preserve the permissions of other roles without unintentionally broadening access.
+Inspect the browser network requests and console, NestJS logs, FastAPI logs where relevant, database records, and storage responses to locate the exact failure.
 
----
+### 3.2 Correct examiner evidence listing
 
-## 5. Examiner Access to `/claims`
+The examiner's `/evidence` page must be a **read-only evidence inspection interface**, not a claimant upload page.
 
-When the authenticated user has the **Examiner** role:
+It must:
 
-- Do not display the **New Claim**, **New Claim Intake**, or equivalent claim-creation button.
-- Display only claims assigned to the authenticated examiner.
-- Allow the examiner to open assigned claims, inspect evidence, request additional evidence, and submit assessments according to the existing workflow.
-- Display AI-processing and review flags on relevant claims.
-- Ensure the examiner's queue reflects persisted backend status rather than hardcoded frontend data.
+- Display evidence uploaded by claimants for claims assigned to the authenticated examiner.
+- Show the associated claim reference, claimant or policy reference as authorized, upload time, evidence filename, analysis status, and damage-analysis summary where available.
+- Display the actual uploaded image through a secure, authorized image URL or authenticated image endpoint.
+- Allow the examiner to open the full-size image and inspect it clearly.
+- Display analysis results and duplicate/near-duplicate matches when available.
+- Show an appropriate loading state while evidence is retrieved.
+- Show a useful empty state when there genuinely is no evidence.
+- Show an error state and retry option when the API request fails.
+- Refresh or update when new evidence is submitted or analysis finishes.
+- Keep evidence visible when analysis is still `PENDING` or `PROCESSING`; examiners must not have to wait for AI completion to inspect an uploaded image.
+- Handle failed analysis without hiding the uploaded image.
+- Avoid duplicate evidence rows caused by joins or repeated polling.
 
-### Mandatory backend security
+Do not show claimant upload controls on the examiner's `/evidence` page. Claimants and examiners must have separate permissions and UI behavior.
 
-Enforce examiner assignment checks in NestJS for:
+### 3.3 Enforce authorization on the backend
 
-- Claim list and search endpoints.
-- Claim detail endpoints.
-- Evidence retrieval and download.
-- AI analysis results.
-- Assessment retrieval and submission.
-- Additional-evidence requests.
-- Claim decisions and other examiner actions.
+Do not rely on frontend filtering for access control.
 
-An examiner must not gain access to another examiner's claims by changing a claim ID in a URL or submitting a crafted API request.
+- Examiners may only retrieve evidence associated with claims assigned to them.
+- Direct requests for another examiner's evidence must be rejected.
+- Historical evidence returned by similarity search must follow insurer and authorization boundaries.
+- Image access must be protected by the same applicable access rules.
+- Admin access should follow existing project permissions.
 
-Reuse the canonical examiner-assignment relationship already present in the database. Do not introduce a second assignment mechanism unnecessarily.
+Use the current authentication and assignment model rather than inventing a separate authorization system.
 
-Administrators and operations users must retain only the access granted by the existing role model.
+### 3.4 Verify the full inspection flow
 
----
+Test the complete workflow:
 
-## 6. Automatically Mark Claims Under Review
+1. A claimant uploads evidence to a claim.
+2. The evidence record and image are stored successfully.
+3. The claimant is returned to `/claims` as required by the existing workflow.
+4. AI processing continues asynchronously.
+5. The assigned examiner opens `/evidence`.
+6. The examiner sees the uploaded evidence even while AI is processing.
+7. The examiner opens the image and views the analysis when available.
+8. A different examiner cannot access evidence for a claim they are not assigned to.
+9. The evidence remains accessible after a page refresh and a new login, subject to authorization.
 
-When an examiner opens a claim assigned to them:
-
-1. Verify the examiner's authorization and assignment.
-2. If the claim is eligible for review, transition it to **Under Review**, or the existing equivalent status.
-3. Persist the change in the backend.
-4. Update the frontend from the backend response.
-5. Record an audit event with the actor, claim ID, previous status, new status, and timestamp.
-
-### Important safeguards
-
-- Perform the transition only when necessary.
-- Reopening or refreshing an already-under-review claim must not generate duplicate transition events.
-- Never move an assessed, closed, rejected, or otherwise later-stage claim backward to Under Review.
-- Do not bypass existing workflow permissions.
-- Do not casually add database mutations to a GET request. Prefer an explicit authenticated start-review action or another appropriate idempotent API pattern.
-- Trigger the transition once when the examiner enters the claim workflow, and handle retries safely.
-
-### Acceptance criteria
-
-Opening an eligible assigned claim automatically persists the Under Review status and records one audit event for the actual transition.
+If evidence is claim-specific in the existing application, ensure the examiner can also access it through the corresponding assigned claim's detail/inspection page.
 
 ---
 
-## 7. Fix the Request Additional Evidence Form
+## 4. Audit integration across the application
 
-### Current bug
+Inspect and fix the integration between:
 
-When the examiner submits the **Request Additional Evidence** form, the backend returns:
+- Next.js frontend.
+- NestJS main backend.
+- PostgreSQL and Prisma.
+- FastAPI/ML backend.
+- Qdrant vector database.
+- Object storage.
 
-`message must be string`
+Verify that:
 
-This happens even though the form appears to accept a string.
+- The frontend communicates with NestJS using the correct API contract.
+- NestJS invokes FastAPI using the correct URL, request body, authentication, timeout, and error handling.
+- FastAPI returns structured responses that NestJS validates and persists correctly.
+- Evidence records, damage-analysis records, and similarity matches remain linked to the correct IDs.
+- Asynchronous analysis updates the existing evidence and analysis records instead of creating inconsistent duplicates.
+- Status transitions are consistent across the database, backend responses, and UI.
+- A failed ML request cannot leave the evidence permanently stuck in `AI Processing` without an observable error or retry path.
+- The examiner queue includes claims according to the project's intended workflow.
+- Real backend failures are not concealed by mock data or hardcoded successful responses.
 
-Trace the request through every layer and identify the actual cause.
-
-Inspect:
-
-- Frontend form state.
-- Input registration and validation.
-- Form submission handler.
-- API client and request serialization.
-- Request body and property names.
-- NestJS controller.
-- DTO definitions and validation decorators.
-- Validation and transformation pipes.
-- Service logic and database persistence.
-
-Determine whether the issue is caused by an incorrect property name, nested request body, `undefined` or `null` value, incorrect JSON serialization, `FormData`, or a mismatch between frontend and backend types.
-
-**Fix the root cause. Do not remove or weaken backend validation merely to make the error disappear.**
-
-### Required behavior after the fix
-
-1. The examiner enters a request message and submits the form.
-2. The frontend sends the correctly structured request expected by the NestJS DTO.
-3. The backend validates and persists the request.
-4. Only after successful persistence, the claim transitions to **Need More Evidence**, or the existing equivalent.
-5. The frontend displays a success notification and updates the claim status.
-6. The audit log records the request and transition.
-
-If the request fails, do not change the claim status.
-
-### Validation and regression tests
-
-- Ensure frontend TypeScript types match the backend DTO.
-- Validate that the message is a string and apply sensible required/length rules consistent with the UI.
-- Add a regression test for a valid string message.
-- Add tests for missing, null, and non-string values.
-- Verify that valid submission changes the claim status to Need More Evidence.
-- Verify that a failed request leaves the claim status unchanged.
+Preserve the existing claim lifecycle and role permissions. Do not rewrite unrelated functionality unless it is necessary to fix the root cause.
 
 ---
 
-## 8. Examiner Assessment and Admin Review
+## 5. Implementation requirements
 
-When the examiner finishes reviewing a claim and submits the assessment:
+Work in this order:
 
-1. Validate the assessment request.
-2. Persist the assessment in the backend.
-3. Transition the claim to **Assessed**, or the existing equivalent.
-4. Make the claim appear in the authorized administrator's assessment-review queue.
-5. Record the assessment submission and status transition in the audit log.
-6. Display the updated persisted status in the frontend.
+1. Inspect the repository structure and read the relevant implementation in the frontend, NestJS backend, FastAPI/ML backend, and Qdrant integration.
+2. Reproduce the suspicious AI output and missing evidence issue.
+3. Identify the root cause of each problem and record the relevant evidence from logs, code, database state, or tests.
+4. Fix the AI inference, embedding/search, duplicate matching, risk assessment, and response mapping as required.
+5. Fix examiner evidence retrieval, image access, rendering, and authorization.
+6. Correct any API contract, database, configuration, or migration issues.
+7. Add regression tests and run the relevant existing test suites.
+8. Run the services and test the integrated workflow where the environment permits.
+9. Verify that existing working functionality remains intact.
 
-### Important requirements
+Do not:
 
-- Only the examiner assigned to the claim may submit its assessment, unless the existing permission model explicitly authorizes an exception.
-- Preserve examiner findings separately from AI findings.
-- Do not automatically close the claim when the examiner submits an assessment.
-- Prevent accidental duplicate submissions and conflicting updates where practical.
-- Ensure the administrator can inspect the assessment and complete the existing claim closure/finalization workflow.
-- Do not invent a separate admin permission system if one already exists.
-- Enforce the status transition in NestJS, not only in the frontend.
+- Hardcode different risk labels to make the output appear correct.
+- Disable similarity detection simply because the scores are high.
+- Arbitrarily lower similarity thresholds without validating their meaning.
+- Use mocks to simulate successful AI inference in integration tests.
+- Delete existing data or model assets without investigating their purpose.
+- Hide uploaded evidence because AI processing is pending or has failed.
+- expose private evidence URLs or cross-insurer data.
+- Mark a claim as fraudulent or reject it solely because of a similarity score.
+- Claim a test passed when it was not run.
 
-### Expected lifecycle
-
-The intended normal workflow is:
-
-1. Evidence uploaded.
-2. AI Processing.
-3. Analysis result:
-   - Fraud Review, if a configured match/risk condition exists.
-   - No Damage Detected, if the model detects no damage.
-   - Submitted, if the analysis is usable and no configured fraud-review condition applies.
-4. Examiner opens the assigned claim: Under Review.
-5. Examiner requests more evidence: Need More Evidence.
-6. Examiner submits assessment: Assessed.
-7. Authorized administrator reviews the assessment and closes/finalizes the claim.
-
-Use the existing status model where possible. Do not force every exceptional case into this normal sequence or discard independent AI findings.
+Use mocks only for isolated unit tests when appropriate. The end-to-end verification must exercise the actual configured AI service and its vector database integration.
 
 ---
 
-## 9. Mandatory ML Integration: Merge `ML/` and `ML-backend/`
+## 6. Acceptance criteria
 
-**This task is mandatory and must not be skipped.**
+The work is complete only when:
 
-Inspect the entire `ML/` directory and the existing `ML-backend/` project. Integrate their useful functionality into one coherent ML project while preserving existing behavior.
+- [ ] The AI service has been tested with multiple different images.
+- [ ] The source of repeated `POTENTIAL_FRAUD` results has been identified and fixed, or a specific remaining limitation is documented with evidence.
+- [ ] Similarity scores are derived correctly from actual vector search results.
+- [ ] Current evidence cannot incorrectly match itself as historical evidence.
+- [ ] Match IDs and similarity explanations are consistent.
+- [ ] The risk score follows a documented contract and is not silently `null` when a numeric score is required.
+- [ ] Damage detection results reflect actual model output.
+- [ ] Model failures do not produce fabricated successful analysis.
+- [ ] The examiner can see newly uploaded evidence before AI processing finishes.
+- [ ] The examiner can open and inspect the original uploaded image.
+- [ ] Evidence remains visible when AI processing fails.
+- [ ] Examiners can only access evidence for claims assigned to them.
+- [ ] The examiner evidence page does not contain claimant upload controls.
+- [ ] API contracts, persistence, and UI rendering are consistent.
+- [ ] Regression tests cover both the AI problem and evidence visibility.
+- [ ] Existing functionality is preserved.
 
-Do not simply copy one directory over the other or delete either project before understanding its implementation.
+## 7. Final report
 
-### Step 1: Inspect both projects
+After implementing the changes, provide a concise but technically detailed report containing:
 
-Inspect:
+1. **Root causes:** What caused the repeated fraud classification and missing evidence.
+2. **Files changed:** Each important file and what was changed.
+3. **AI validation:** Which images and scenarios were tested, with actual results and scores.
+4. **Evidence visibility:** The specific issue preventing display and how it was fixed.
+5. **Tests executed:** Commands run, passing/failing tests, and any tests that could not be run.
+6. **Remaining limitations:** Missing model weights, unavailable datasets, environment issues, or unresolved problems.
+7. **Manual verification steps:** How to reproduce a successful claimant upload and examiner inspection.
 
-- Directory structures and README files.
-- Python entry points and application startup.
-- FastAPI apps, routers, controllers, and endpoints.
-- Model loading and inference pipelines.
-- Image preprocessing and postprocessing.
-- Damage-detection model architecture and class labels.
-- Embedding-generation code.
-- Similarity-search and Qdrant integration.
-- Utility modules and shared functions.
-- Dependency manifests and version constraints.
-- Environment variables and configuration files.
-- Model weights, checkpoints, datasets, and label maps.
-- Dockerfiles, compose configuration, startup scripts, and deployment instructions.
-- Tests and any existing API contracts consumed by NestJS.
-
-Determine which functionality is unique to each project, where functionality overlaps, and which ML endpoint NestJS currently calls.
-
-### Step 2: Establish one canonical ML project
-
-Consolidate the code into one maintainable project with:
-
-- One documented canonical entry point.
-- A consistent dependency/configuration setup.
-- Clear modules for model loading, inference, embedding generation, and similarity search where appropriate.
-- A stable internal API consumed by NestJS.
-- Correct model/configuration paths independent of the shell's current working directory.
-- Health/readiness endpoints and appropriate error handling.
-- Tests for core behavior.
-
-Preserve useful features from both projects. Do not replace real inference with placeholder results.
-
-### Step 3: Preserve model and vector compatibility
-
-- Preserve existing model weights, class labels, preprocessing, image dimensions, normalization, and postprocessing logic.
-- Preserve embedding dimensions and vector metadata required by Qdrant.
-- Ensure vector IDs and upserts are stable and idempotent.
-- Preserve appropriate tenant/insurer filters for similarity searches.
-- Do not mix embeddings from incompatible model versions.
-- If the integration changes the embedding model, dimensions, preprocessing, collection name, or vector schema, document and implement the necessary migration or reindexing strategy.
-- Do not remove large assets until their role and dependencies are understood.
-
-### Step 4: Integrate NestJS with the unified ML backend
-
-- Update the NestJS AI service to call the unified ML backend's actual URL and endpoints.
-- Keep service-to-service calls authenticated and internal.
-- Ensure request/response DTOs match between NestJS and FastAPI.
-- Pass the existing evidence ID, claim ID, analysis ID, trusted image reference, SHA-256, pHash, and relevant duplicate-match information as required by the existing design.
-- Do not make the ML service recompute SHA-256 or pHash if NestJS already owns those calculations.
-- Ensure the ML backend performs real inference, embedding generation, and Qdrant operations where configured.
-- Persist returned analysis results through NestJS.
-- Keep the frontend isolated from direct ML-backend or Qdrant access.
-
-### Step 5: Consolidate safely
-
-- Update dependency files, startup commands, environment examples, Docker configuration, README documentation, and tests.
-- Resolve dependency conflicts based on actual requirements.
-- Retain a compatibility wrapper if it is necessary during migration.
-- Remove old duplicate code only after the unified project works and tests pass.
-- Document the canonical location of the integrated project and how to start it.
-
-### ML integration acceptance criteria
-
-1. One canonical ML backend entry point is documented.
-2. Useful functionality from both projects remains available.
-3. Dependencies install successfully using documented instructions.
-4. The service starts from the documented working directory.
-5. The intended models and configuration load correctly.
-6. Real damage inference works with a valid test image when assets and dependencies are available.
-7. Embedding generation and Qdrant search/upsert work when the configured service is available.
-8. NestJS successfully calls the unified ML service.
-9. Request/response contracts and error handling are verified.
-10. No required model weights, labels, configurations, or functionality are accidentally deleted.
-
-If an external service or model asset is unavailable, verify what can be tested and document the blocker honestly. Do not claim full integration success without evidence.
-
----
-
-## 10. Audit Every Relevant API Endpoint
-
-Perform a systematic audit of the frontend, NestJS backend, and ML backend.
-
-Inventory the endpoints used by:
-
-- Authentication and session management.
-- Claims list, details, and assignment.
-- Evidence upload and retrieval.
-- AI analysis status and results.
-- Duplicate/similarity matches.
-- Additional-evidence requests.
-- Examiner assessment.
-- Admin assessment review and claim closure.
-- Audit logs and status transitions.
-- ML health, damage inference, embeddings, and similarity search.
-
-For each endpoint, verify:
-
-- HTTP method and URL.
-- Request parameters and body structure.
-- DTO validation and TypeScript types.
-- Authentication and role/assignment guards.
-- Database operations and relations.
-- ML service calls and response mapping.
-- Status codes and error responses.
-- Frontend loading, success, and error handling.
-
-Fix missing endpoints, stale URLs, incorrect request properties, mismatched response shapes, missing authorization, and broken service configuration.
-
-Update every consumer and test whenever an API contract changes.
-
-Do not assume an endpoint works merely because the frontend compiles. Test the actual request and response path wherever the environment permits.
-
----
-
-## 11. Testing and Verification
-
-Inspect the repository's scripts and use the existing package manager and testing tools.
-
-Run the available tests, type checks, linting, builds, migrations where applicable, and health checks for the frontend, NestJS backend, and unified ML project.
-
-At minimum, verify:
-
-1. Evidence upload persists successfully and returns the user to `/claims`.
-2. The upload endpoint does not wait for full AI inference.
-3. AI Processing appears while analysis is pending.
-4. The UI updates when analysis finishes.
-5. A genuine duplicate match triggers Fraud Review.
-6. No damage detected triggers the appropriate examiner cross-check flag.
-7. A usable analysis without a configured fraud-review condition triggers Submitted and enters the assigned examiner queue.
-8. Failed or inconclusive analysis is not misrepresented as a successful result.
-9. Examiners cannot upload evidence through either the UI or direct API requests.
-10. Examiners do not see the New Claim button on `/claims`.
-11. Examiners can only access claims assigned to them, including nested evidence and AI results.
-12. Opening an eligible claim transitions it to Under Review and records one appropriate audit event.
-13. The additional-evidence form accepts valid strings and fixes the `message must be string` bug.
-14. Invalid messages are handled correctly.
-15. Successful evidence requests transition claims to Need More Evidence.
-16. Assessment submission transitions claims to Assessed.
-17. Assessed claims appear in the appropriate admin review queue.
-18. Admins can review and close claims using existing permissions.
-19. Late AI results do not overwrite examiner assessments or final decisions.
-20. The unified ML backend starts correctly and loads the intended models.
-21. Real inference, embedding generation, and Qdrant operations work where dependencies and services are available.
-22. All affected frontend/backend/ML API contracts match.
-23. Existing claim, evidence, assessment, decision, and audit functionality continues working.
-
-Add unit and integration tests for important logic and authorization boundaries. Use an end-to-end test for the upload-to-examiner workflow where practical.
-
-**Never claim a test passed unless it was actually executed.** Distinguish automated tests, manual checks, and blocked checks.
-
----
-
-## 12. Implementation Order
-
-Follow this order to minimize regressions:
-
-1. Inspect the repository, schema, existing status enums, authorization rules, API contracts, and both ML projects.
-2. Document the current behavior and identify the root cause of each reported issue.
-3. Fix the additional-evidence request payload/DTO validation mismatch.
-4. Implement evidence upload navigation and asynchronous AI status updates.
-5. Implement the AI result flags and persistence.
-6. Implement examiner-only page restrictions and backend assignment enforcement.
-7. Implement Under Review, Need More Evidence, and Assessed transitions with audit events.
-8. Integrate `ML/` and `ML-backend/` into one project while preserving functionality.
-9. Connect and verify the affected frontend, NestJS, and ML endpoints.
-10. Run tests and builds, resolve regressions, and update documentation.
-
-Do not rewrite unrelated components unless necessary to complete these tasks.
-
-## 13. Final Report
-
-After implementation, provide a report containing:
-
-- **Root causes:** The cause of each issue found.
-- **Frontend changes:** Components, routes, forms, and API clients modified.
-- **Backend changes:** Controllers, services, DTOs, authorization rules, and status transitions modified.
-- **Database changes:** Schema changes and migrations.
-- **ML integration:** How `ML/` and `ML-backend/` were consolidated, the canonical entry point, and the functionality/assets preserved.
-- **API verification:** Which endpoints were tested and their actual results.
-- **Testing:** Commands executed and actual results for tests, type checks, linting, builds, and health checks.
-- **Manual verification:** Steps and outcomes for the complete upload-to-admin-closure workflow.
-- **Remaining blockers:** Missing model assets, credentials, services, or infrastructure that prevented verification.
-
-**Final requirement:** Implement the complete workflow across the frontend, backend, database, and ML backend. Preserve existing functionality, enforce examiner assignment at the backend, and verify the real API integrations. Consolidating `ML/` and `ML-backend/` into one working project is mandatory.
+**Start by inspecting the actual implementation and reproducing both failures. Then fix the underlying causes and verify the complete workflow. Do not stop after producing a plan or making superficial UI changes.**

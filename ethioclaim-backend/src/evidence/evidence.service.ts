@@ -560,6 +560,189 @@ export class EvidenceService {
   }
 
   /**
+   * List evidence with RBAC filtering:
+   * - EXAMINER: only evidence for claims assigned to this examiner
+   * - INTAKE_USER: only evidence for claims created by this user
+   * - ADMIN: all evidence
+   */
+  async findAll(
+    userId: string,
+    role: string,
+    query: {
+      page?: number;
+      pageSize?: number;
+      status?: string;
+      q?: string;
+      claimId?: string;
+    },
+  ) {
+    const page = Math.max(1, query.page || 1);
+    const pageSize = Math.min(100, Math.max(1, query.pageSize || 50));
+    const skip = (page - 1) * pageSize;
+
+    const where: any = {
+      deletedAt: null,
+    };
+
+    if (role === 'INTAKE_USER') {
+      where.claim = { createdById: userId };
+    } else if (role === 'EXAMINER') {
+      // Find all claims assigned to this examiner
+      const assessedClaims = await this.prisma.examinerAssessment.findMany({
+        where: { examinerId: userId },
+        select: { claimId: true },
+      });
+      const assessedClaimIds = assessedClaims.map((a) => a.claimId);
+
+      const assignEvents = await this.prisma.auditEvent.findMany({
+        where: { action: 'EXAMINER_ASSIGNED' },
+        orderBy: { createdAt: 'desc' },
+        select: { claimId: true, details: true },
+      });
+
+      const claimLatestAssignMap = new Map<string, string>();
+      for (const ev of assignEvents) {
+        if (ev.claimId && !claimLatestAssignMap.has(ev.claimId)) {
+          const det = ev.details as any;
+          if (det?.examinerId) {
+            claimLatestAssignMap.set(ev.claimId, det.examinerId);
+          }
+        }
+      }
+
+      const assignedEventClaimIds: string[] = [];
+      for (const [cId, exId] of claimLatestAssignMap.entries()) {
+        if (exId === userId) {
+          assignedEventClaimIds.push(cId);
+        }
+      }
+
+      const allAssignedIds = Array.from(new Set([...assessedClaimIds, ...assignedEventClaimIds]));
+      where.claimId = { in: allAssignedIds };
+    }
+
+    if (query.claimId) {
+      where.claimId = query.claimId;
+    }
+
+    if (query.status) {
+      if (query.status === 'PROCESSING') {
+        where.analysisStatus = { in: ['PENDING', 'PROCESSING'] };
+      } else if (query.status === 'COMPLETED') {
+        where.analysisStatus = 'COMPLETED';
+      } else if (query.status === 'FAILED') {
+        where.analysisStatus = 'FAILED';
+      }
+    }
+
+    if (query.q) {
+      where.OR = [
+        { originalName: { contains: query.q, mode: 'insensitive' } },
+        { claim: { claimNumber: { contains: query.q, mode: 'insensitive' } } },
+        { claim: { claimantFullName: { contains: query.q, mode: 'insensitive' } } },
+        { claim: { vehiclePlateNumber: { contains: query.q, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      this.prisma.evidence.findMany({
+        where,
+        skip,
+        take: pageSize,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          claim: {
+            select: {
+              id: true,
+              claimNumber: true,
+              claimantFullName: true,
+              vehiclePlateNumber: true,
+              status: true,
+              policy: {
+                select: {
+                  id: true,
+                  policyNumber: true,
+                  insurer: true,
+                },
+              },
+            },
+          },
+          analysis: true,
+          matchedBy: {
+            include: {
+              matchedEvidence: {
+                select: { id: true, claimId: true, claim: { select: { claimNumber: true } } },
+              },
+            },
+          },
+        },
+      }),
+      this.prisma.evidence.count({ where }),
+    ]);
+
+    const formatted = items.map((ev) => {
+      const detObj = ev.analysis?.detections as any;
+      return {
+        id: ev.id,
+        claimId: ev.claimId,
+        claim: ev.claim,
+        claimNumber: ev.claim?.claimNumber,
+        originalName: ev.originalName,
+        filename: ev.originalName,
+        originalFilename: ev.originalName,
+        mimeType: ev.mimeType,
+        sizeBytes: Number(ev.sizeBytes),
+        storageKey: ev.storageKey,
+        publicUrl: `/api/v1/evidence/${ev.id}/file`,
+        url: `/api/v1/evidence/${ev.id}/file`,
+        thumbnailUrl: `/api/v1/evidence/${ev.id}/file`,
+        sha256: ev.sha256,
+        phash: ev.phash,
+        caption: ev.caption,
+        evidenceType: ev.evidenceType,
+        analysisStatus: ev.analysisStatus,
+        uploadedById: ev.uploadedById,
+        uploadedAt: ev.createdAt,
+        createdAt: ev.createdAt,
+        analysis: ev.analysis
+          ? {
+              id: ev.analysis.id,
+              status: ev.analysis.status,
+              modelName: ev.analysis.modelName,
+              modelVersion: ev.analysis.modelVersion,
+              detections: detObj?.damageDetections || (Array.isArray(detObj) ? detObj : []),
+              riskAssessment: detObj?.riskAssessment || null,
+              warnings: detObj?.warnings || [],
+              inferenceMs: ev.analysis.inferenceMs,
+              errorCode: ev.analysis.errorCode,
+              errorMessage: ev.analysis.errorMessage,
+            }
+          : null,
+        matchesCount: ev.matchedBy.length,
+        hasMatches: ev.matchedBy.length > 0,
+        matches: ev.matchedBy.map((m) => ({
+          id: m.id,
+          sourceEvidenceId: m.sourceEvidenceId,
+          matchedEvidenceId: m.matchedEvidenceId,
+          matchedClaimId: m.matchedEvidence?.claimId,
+          matchedClaimNumber: m.matchedEvidence?.claim?.claimNumber,
+          matchType: m.matchType,
+          score: m.score ? Number(m.score) : null,
+          distance: m.distance,
+        })),
+      };
+    });
+
+    return {
+      items: formatted,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  /**
    * Find evidence by ID
    */
   async findById(evidenceId: string, userId: string, role: string) {
@@ -590,9 +773,13 @@ export class EvidenceService {
       claimId: evidence.claimId,
       claimNumber: evidence.claim.claimNumber,
       originalName: evidence.originalName,
+      filename: evidence.originalName,
+      originalFilename: evidence.originalName,
       mimeType: evidence.mimeType,
       sizeBytes: Number(evidence.sizeBytes),
-      publicUrl: evidence.publicUrl,
+      publicUrl: `/api/v1/evidence/${evidence.id}/file`,
+      url: `/api/v1/evidence/${evidence.id}/file`,
+      thumbnailUrl: `/api/v1/evidence/${evidence.id}/file`,
       sha256: evidence.sha256,
       phash: evidence.phash,
       caption: evidence.caption,
@@ -616,6 +803,41 @@ export class EvidenceService {
         : null,
       matchesCount: evidence.matchedBy.length,
       uploadedAt: evidence.createdAt,
+    };
+  }
+
+  async getFileStreamByStorageKey(storageKey: string, userId: string, role: string) {
+    const rawKey = decodeURIComponent(storageKey);
+    const sanitizedKey = rawKey.replace(/[\/\\]/g, '_');
+
+    const evidence = await this.prisma.evidence.findFirst({
+      where: {
+        OR: [
+          { storageKey: rawKey },
+          { storageKey: { contains: sanitizedKey } },
+          { publicUrl: { contains: encodeURIComponent(storageKey) } },
+        ],
+        deletedAt: null,
+      },
+      include: { claim: true },
+    });
+
+    if (evidence) {
+      await this.verifyClaimAccess(evidence.claimId, userId, role);
+      const { stream, contentType } = await this.storageService.getFileStream(evidence.storageKey);
+      return {
+        stream,
+        contentType: contentType || evidence.mimeType || 'image/jpeg',
+        originalName: evidence.originalName,
+      };
+    }
+
+    // Direct storage fallback
+    const { stream, contentType } = await this.storageService.getFileStream(rawKey);
+    return {
+      stream,
+      contentType: contentType || 'image/jpeg',
+      originalName: 'evidence.jpg',
     };
   }
 

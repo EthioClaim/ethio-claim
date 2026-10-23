@@ -242,6 +242,7 @@ export interface Evidence {
   hasMatches?: boolean;
   matches?: any[];
   noDamageDetected?: boolean;
+  claim?: Partial<Claim>;
 }
 
 export interface DamageDetection {

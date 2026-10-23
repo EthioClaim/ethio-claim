@@ -60,7 +60,18 @@ class AnalysisService:
                     phash=request.phash,
                 )
 
-                # Upsert into vector store
+                # Search top-K similar historical vectors BEFORE inserting current evidence
+                # to prevent self-matching and cross-image pollution within the same claim
+                top_k = request.options.topK if request.options else settings.TOP_K_DEFAULT
+                visual_matches = await vector_store_service.search_similar(
+                    query_vector=vector,
+                    tenant_id=request.tenantId or "default",
+                    exclude_evidence_id=request.evidenceId,
+                    exclude_claim_id=request.claimId,
+                    top_k=top_k,
+                )
+
+                # Upsert current embedding into vector store for future claims
                 embedding_res = await vector_store_service.store_embedding(
                     evidence_id=request.evidenceId,
                     claim_id=request.claimId,
@@ -70,25 +81,17 @@ class AnalysisService:
                     phash=request.phash,
                 )
 
-                # Search top-K similar historical vectors
-                top_k = request.options.topK if request.options else settings.TOP_K_DEFAULT
-                visual_matches = await vector_store_service.search_similar(
-                    query_vector=vector,
-                    tenant_id=request.tenantId or "default",
-                    exclude_evidence_id=request.evidenceId,
-                    top_k=top_k,
-                )
-
             # 4. OCR Extraction (optional)
             if request.options and request.options.ocrExtraction:
                 ocr_result = ocr_service.extract_for_analysis(img, seed=request.evidenceId)
 
-            # 5. Risk Assessment (Section 6 & 8)
+            # 5. Risk Assessment (Section 1.5 of prompt.md)
             risk_assessment = risk_assessor_service.evaluate_risk(
                 claim_id=request.claimId,
                 evidence_id=request.evidenceId,
                 hash_matches=request.hashMatches,
                 visual_matches=visual_matches,
+                damage_detections=damage_detections,
                 is_corrupt_or_failed=False,
             )
 

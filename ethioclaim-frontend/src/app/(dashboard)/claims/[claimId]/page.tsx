@@ -13,6 +13,7 @@ import {
   fetchClaimTimeline,
   requestClaimEvidence,
   getEvidenceFileUrl,
+  getAuthenticatedEvidenceUrl,
   submitClaim,
   assignExaminer,
   closeClaim,
@@ -729,13 +730,19 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                       className="group relative rounded-xl overflow-hidden aspect-[4/3] bg-white/[0.03] border border-white/10 hover:border-[#0A84FF] transition-all"
                     >
                       <img
-                        src={ev.thumbnailUrl || ev.url || getEvidenceFileUrl(ev.id)}
+                        src={getAuthenticatedEvidenceUrl(ev)}
                         alt={ev.originalFilename || ev.filename || "Evidence"}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
+                          const target = e.target as HTMLElement;
+                          target.style.display = "none";
+                          const fallback = target.parentElement?.querySelector(".thumb-fallback");
+                          if (fallback) (fallback as HTMLElement).style.display = "flex";
                         }}
                       />
+                      <div className="thumb-fallback hidden w-full h-full items-center justify-center text-xs text-[var(--text-muted)] bg-white/5">
+                        📷
+                      </div>
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
                         <span className="text-[10px] font-mono text-white truncate">
                           {ev.originalFilename || ev.filename || `Photo #${ev.id.slice(-4)}`}

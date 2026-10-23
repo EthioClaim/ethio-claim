@@ -1,6 +1,7 @@
 import base64
 import io
 import os
+import logging
 from pathlib import Path
 from typing import Optional, Tuple
 from PIL import Image, ImageDraw, ImageFile
@@ -8,14 +9,15 @@ import httpx
 from fastapi import HTTPException, status
 from app.core.config import settings
 
+logger = logging.getLogger("image_loader")
 ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 class ImageLoaderService:
     def __init__(self):
-        self.uploads_dir = Path(settings.LOCAL_UPLOADS_DIR).resolve()
-        # Also check root uploads dir
-        self.alt_uploads_dir = (Path(__file__).resolve().parent.parent.parent.parent / "ethioclaim-backend" / "uploads").resolve()
+        backend_root = Path(__file__).resolve().parent.parent.parent.parent
+        self.workspace_root = backend_root
+        self.uploads_dir = (backend_root / "ethioclaim-backend" / "uploads").resolve()
 
     async def load_image(
         self,
@@ -26,14 +28,13 @@ class ImageLoaderService:
     ) -> Tuple[Image.Image, dict]:
         """
         Loads and validates an image from base64, trusted local storage reference,
-        or authorized HTTP URL. If none exists, creates a deterministic synthetic image.
+        or authorized HTTP URL. Raises clear errors on corrupt or missing images.
         """
         raw_bytes: Optional[bytes] = None
 
         # 1. Base64 payload
         if image_base64:
             try:
-                # Strip data URL prefix if present
                 if "base64," in image_base64:
                     image_base64 = image_base64.split("base64,")[1]
                 raw_bytes = base64.b64decode(image_base64)
@@ -45,22 +46,24 @@ class ImageLoaderService:
 
         # 2. Local storage reference
         if not raw_bytes and image_ref:
-            # Check direct path
+            sanitized_key = image_ref.replace("/", "_").replace("\\", "_")
             candidate_paths = [
                 Path(image_ref),
                 self.uploads_dir / image_ref,
-                self.uploads_dir / image_ref.replace("/", "_").replace("\\", "_"),
-                self.alt_uploads_dir / image_ref,
-                self.alt_uploads_dir / image_ref.replace("/", "_").replace("\\", "_"),
+                self.uploads_dir / sanitized_key,
+                self.workspace_root / image_ref,
+                self.workspace_root / "uploads" / sanitized_key,
+                Path(settings.LOCAL_UPLOADS_DIR).resolve() / image_ref,
+                Path(settings.LOCAL_UPLOADS_DIR).resolve() / sanitized_key,
             ]
             for p in candidate_paths:
                 if p.is_file():
                     raw_bytes = p.read_bytes()
+                    logger.info(f"Loaded image bytes from local file: {p}")
                     break
 
         # 3. HTTP / URL
         if not raw_bytes and image_url:
-            # Ensure it is HTTP/HTTPS to prevent file:// SSRF
             if not (image_url.startswith("http://") or image_url.startswith("https://")):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -72,12 +75,23 @@ class ImageLoaderService:
                     if resp.status_code == 200:
                         raw_bytes = resp.content
             except Exception as err:
-                # Log and proceed to fallback
-                pass
+                logger.warning(f"Failed to fetch image from URL {image_url}: {err}")
 
-        # 4. Fallback synthetic image for testing / missing local file
+        # If image reference was provided but could not be resolved, do NOT fabricate data
         if not raw_bytes:
-            raw_bytes = self._generate_synthetic_image(fallback_seed or image_ref or "default-evidence")
+            if image_ref or image_url:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"Evidence image file '{image_ref or image_url}' could not be located in storage.",
+                )
+            elif fallback_seed:
+                # Only use synthetic image if no image reference was provided at all (synthetic testing)
+                raw_bytes = self._generate_synthetic_image(fallback_seed)
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No image data or storage reference provided for analysis.",
+                )
 
         # Validation of raw byte length
         if len(raw_bytes) > settings.MAX_IMAGE_BYTES:
@@ -90,11 +104,11 @@ class ImageLoaderService:
         try:
             img = Image.open(io.BytesIO(raw_bytes))
             img.load()  # verify integrity
-        except Exception:
-            # If image file is corrupt or truncated, generate deterministic synthetic image
-            raw_bytes = self._generate_synthetic_image(fallback_seed or image_ref or "repaired-image")
-            img = Image.open(io.BytesIO(raw_bytes))
-            img.load()
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid or corrupt image format: {str(e)}",
+            )
 
         # Validate dimensions
         width, height = img.size
@@ -119,23 +133,14 @@ class ImageLoaderService:
 
     def _generate_synthetic_image(self, seed: str) -> bytes:
         """
-        Generates a deterministic synthetic test image representing vehicle damage.
+        Generates a synthetic test image for unit tests where no image file is supplied.
         """
-        width, height = 800, 600
-        # Color based on hash of seed
+        width, height = 400, 300
         seed_hash = sum(ord(c) for c in seed) % 256
-        bg_color = (40, 50 + (seed_hash % 60), 80 + (seed_hash % 100))
-
+        bg_color = (seed_hash, (seed_hash * 3) % 256, (seed_hash * 7) % 256)
         img = Image.new("RGB", (width, height), color=bg_color)
         draw = ImageDraw.Draw(img)
-
-        # Draw vehicle outline simulation
-        draw.rectangle([100, 200, 700, 480], outline=(200, 200, 200), width=4)
-        draw.polygon([(180, 200), (280, 100), (520, 100), (620, 200)], outline=(180, 180, 220), fill=(80, 90, 120))
-        # Draw damage area
-        draw.ellipse([300, 280, 480, 420], outline=(220, 50, 50), width=3)
-        draw.line([(320, 310), (450, 390)], fill=(240, 60, 60), width=2)
-
+        draw.rectangle([50, 50, 350, 250], outline=(255, 255, 255), width=2)
         buffer = io.BytesIO()
         img.save(buffer, format="JPEG", quality=85)
         return buffer.getvalue()

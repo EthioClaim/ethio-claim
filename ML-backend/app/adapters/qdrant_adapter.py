@@ -214,10 +214,11 @@ class QdrantAdapter:
         top_k: int = 5,
         tenant_id: Optional[str] = "default",
         exclude_evidence_id: Optional[str] = None,
+        exclude_claim_id: Optional[str] = None,
         min_similarity: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
-        Searches nearest neighbors, filtering by tenant and excluding target evidence.
+        Searches nearest neighbors, filtering by tenant and excluding target evidence/claim.
         Uses remote Qdrant when healthy, otherwise searches embedded local disk storage.
         """
         # Try remote Qdrant first if healthy
@@ -230,6 +231,8 @@ class QdrantAdapter:
                     must_filters.append({"key": "tenant_id", "match": {"value": tenant_id}})
                 if exclude_evidence_id:
                     must_not_filters.append({"key": "evidence_id", "match": {"value": exclude_evidence_id}})
+                if exclude_claim_id:
+                    must_not_filters.append({"key": "claim_id", "match": {"value": exclude_claim_id}})
 
                 search_filter: Dict[str, Any] = {}
                 if must_filters:
@@ -273,15 +276,22 @@ class QdrantAdapter:
         # Embedded local disk storage search fallback
         results = []
         for pid, pt in self._memory_points.items():
-            payload = pt["payload"]
+            payload = pt.get("payload", {})
             # Tenant filter
             if tenant_id and payload.get("tenant_id") != tenant_id:
                 continue
             # Exclude evidence filter
             if exclude_evidence_id and payload.get("evidence_id") == exclude_evidence_id:
                 continue
+            # Exclude same claim filter
+            if exclude_claim_id and payload.get("claim_id") == exclude_claim_id:
+                continue
 
-            sim = self._cosine_sim(query_vector, pt["vector"])
+            pt_vec = pt.get("vector", [])
+            if len(pt_vec) != len(query_vector):
+                continue
+
+            sim = self._cosine_sim(query_vector, pt_vec)
             if sim >= min_similarity:
                 results.append(
                     {

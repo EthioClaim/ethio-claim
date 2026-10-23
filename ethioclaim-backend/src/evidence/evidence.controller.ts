@@ -12,6 +12,7 @@ import {
   UploadedFile,
   HttpStatus,
   HttpCode,
+  Query,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
@@ -24,6 +25,24 @@ import { RolesGuard, Roles } from '../auth/roles.guard';
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class EvidenceController {
   constructor(private readonly evidenceService: EvidenceService) {}
+
+  @Get('evidence')
+  findAll(
+    @Req() req: any,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('status') status?: string,
+    @Query('q') q?: string,
+    @Query('claimId') claimId?: string,
+  ) {
+    return this.evidenceService.findAll(req.user.id, req.user.role, {
+      page: page ? parseInt(page, 10) : undefined,
+      pageSize: pageSize ? parseInt(pageSize, 10) : undefined,
+      status,
+      q,
+      claimId,
+    });
+  }
 
   @Post('claims/:claimId/evidence')
   @Roles('INTAKE_USER', 'ADMIN')
@@ -56,6 +75,27 @@ export class EvidenceController {
   @Get('evidence/:evidenceId')
   findOne(@Param('evidenceId') evidenceId: string, @Req() req: any) {
     return this.evidenceService.findById(evidenceId, req.user.id, req.user.role);
+  }
+
+  @Get('evidence/file/:storageKey(*)')
+  async getFileByStorageKey(
+    @Param('storageKey') storageKey: string,
+    @Req() req: any,
+    @Res() res: Response,
+  ) {
+    const { stream, contentType, originalName } =
+      await this.evidenceService.getFileStreamByStorageKey(
+        storageKey,
+        req.user.id,
+        req.user.role,
+      );
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(originalName)}"`,
+    );
+    stream.pipe(res);
   }
 
   @Get('evidence/:evidenceId/file')

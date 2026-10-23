@@ -101,11 +101,45 @@ function formatClaim(c: any) {
     aiSuggestedSeverity = 'MINOR';
   }
 
+  const matchedClaimIds: string[] = [];
+  const matchedEvidenceIds: string[] = [];
+  let riskScore: number | null = null;
+
+  if (fraudEvent?.details) {
+    if (Array.isArray((fraudEvent.details as any).matchedClaimIds)) {
+      matchedClaimIds.push(...(fraudEvent.details as any).matchedClaimIds);
+    }
+    if (Array.isArray((fraudEvent.details as any).matchedEvidenceIds)) {
+      matchedEvidenceIds.push(...(fraudEvent.details as any).matchedEvidenceIds);
+    }
+    if ((fraudEvent.details as any).riskAssessment?.score != null) {
+      riskScore = (fraudEvent.details as any).riskAssessment.score;
+    }
+  }
+
+  if (Array.isArray(c.evidence)) {
+    for (const ev of c.evidence) {
+      const det = ev.analysis?.detections as any;
+      if (det?.riskAssessment?.matchedClaimIds) {
+        matchedClaimIds.push(...det.riskAssessment.matchedClaimIds);
+      }
+      if (det?.riskAssessment?.matchedEvidenceIds) {
+        matchedEvidenceIds.push(...det.riskAssessment.matchedEvidenceIds);
+      }
+      if (det?.riskAssessment?.score != null && riskScore == null) {
+        riskScore = det.riskAssessment.score;
+      }
+    }
+  }
+
   // Derive aiRiskAssessment
   if (isFraudFlag) {
     aiRiskAssessment = {
       label: 'POTENTIAL_FRAUD',
       requiresExaminerReview: true,
+      score: riskScore ?? 0.95,
+      matchedClaimIds: Array.from(new Set(matchedClaimIds)),
+      matchedEvidenceIds: Array.from(new Set(matchedEvidenceIds)),
       reasons: Array.from(
         new Set(fraudReasons.length ? fraudReasons : ['Potential duplicate or visual anomaly detected']),
       ),
@@ -114,18 +148,27 @@ function formatClaim(c: any) {
     aiRiskAssessment = {
       label: 'PENDING',
       requiresExaminerReview: false,
+      score: 0.1,
+      matchedClaimIds: [],
+      matchedEvidenceIds: [],
       reasons: ['AI damage analysis and duplicate verification in progress'],
     };
   } else if (hasFailed) {
     aiRiskAssessment = {
       label: 'FAILED',
       requiresExaminerReview: true,
+      score: 0.5,
+      matchedClaimIds: [],
+      matchedEvidenceIds: [],
       reasons: ['One or more photos could not be processed by the vision model'],
     };
   } else if (c.evidence && c.evidence.length > 0) {
     aiRiskAssessment = {
       label: 'NO_FRAUD_INDICATORS_FOUND',
       requiresExaminerReview: false,
+      score: 0.05,
+      matchedClaimIds: [],
+      matchedEvidenceIds: [],
       reasons: ['No duplicate hashes or cross-claim anomalies identified'],
     };
   }
@@ -185,14 +228,16 @@ function formatClaim(c: any) {
           mimeType: ev.mimeType,
           sizeBytes: Number(ev.sizeBytes),
           storageKey: ev.storageKey,
-          publicUrl: ev.publicUrl,
-          url: ev.publicUrl,
+          publicUrl: `/api/v1/evidence/${ev.id}/file`,
+          url: `/api/v1/evidence/${ev.id}/file`,
+          thumbnailUrl: `/api/v1/evidence/${ev.id}/file`,
           sha256: ev.sha256,
           phash: ev.phash,
           caption: ev.caption,
           evidenceType: ev.evidenceType,
           analysisStatus: ev.analysisStatus,
           uploadedById: ev.uploadedById,
+          uploadedAt: ev.createdAt,
           createdAt: ev.createdAt,
           analysis: ev.analysis
             ? {

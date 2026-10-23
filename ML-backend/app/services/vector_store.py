@@ -60,6 +60,7 @@ class VectorStoreService:
         query_vector: List[float],
         tenant_id: str = "default",
         exclude_evidence_id: Optional[str] = None,
+        exclude_claim_id: Optional[str] = None,
         top_k: int = 5,
         min_similarity: float = 0.0,
     ) -> List[VisualMatch]:
@@ -71,6 +72,7 @@ class VectorStoreService:
             top_k=top_k,
             tenant_id=tenant_id,
             exclude_evidence_id=exclude_evidence_id,
+            exclude_claim_id=exclude_claim_id,
             min_similarity=min_similarity,
         )
 

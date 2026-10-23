@@ -1,6 +1,7 @@
 const http = require('http');
 
-const BASE_URL = 'http://localhost:3005/api/v1';
+const PORT = process.env.PORT || 3006;
+const BASE_URL = `http://localhost:${PORT}/api/v1`;
 
 async function request(path, options = {}) {
   const url = new URL(BASE_URL + path);

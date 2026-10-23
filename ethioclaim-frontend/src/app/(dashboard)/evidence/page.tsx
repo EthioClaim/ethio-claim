@@ -6,7 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchClaims,
   fetchCurrentUser,
+  fetchEvidenceList,
   getEvidenceFileUrl,
+  getAuthenticatedEvidenceUrl,
   fetchEvidenceAnalysis,
   fetchEvidenceMatches,
 } from "@/lib/api";
@@ -59,16 +61,32 @@ function EvidenceWorkspaceContent() {
     setLoading(true);
     setError("");
     try {
-      const claimsRes = await fetchClaims({
-        pageSize: 50,
-        assignedToMe: isExaminer ? true : undefined,
-      });
+      // 1. Direct fetch from dedicated /api/v1/evidence endpoint (scoped to assigned claims for examiners)
+      const evidenceData = await fetchEvidenceList();
 
       const flat: FlatEvidenceItem[] = [];
-      for (const claim of claimsRes.items || []) {
-        if (claim.evidence && Array.isArray(claim.evidence)) {
-          for (const ev of claim.evidence) {
-            flat.push({ evidence: ev, claim });
+      if (Array.isArray(evidenceData) && evidenceData.length > 0) {
+        for (const ev of evidenceData) {
+          const claimObj = (ev.claim as Claim) || {
+            id: ev.claimId,
+            claimNumber: ev.claimId,
+            status: "UNDER_REVIEW" as const,
+            policy: { policyNumber: "N/A" } as any,
+          };
+          flat.push({ evidence: ev, claim: claimObj });
+        }
+      } else {
+        // Fallback: Query claims queue and extract evidence
+        const claimsRes = await fetchClaims({
+          pageSize: 50,
+          assignedToMe: isExaminer ? true : undefined,
+        });
+
+        for (const claim of claimsRes.items || []) {
+          if (claim.evidence && Array.isArray(claim.evidence)) {
+            for (const ev of claim.evidence) {
+              flat.push({ evidence: ev, claim });
+            }
           }
         }
       }
@@ -78,7 +96,27 @@ function EvidenceWorkspaceContent() {
         setSelectedItem(flat[0]);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to load evidence records");
+      try {
+        // Fallback to fetchClaims if /evidence is unavailable
+        const claimsRes = await fetchClaims({
+          pageSize: 50,
+          assignedToMe: isExaminer ? true : undefined,
+        });
+        const flat: FlatEvidenceItem[] = [];
+        for (const claim of claimsRes.items || []) {
+          if (claim.evidence && Array.isArray(claim.evidence)) {
+            for (const ev of claim.evidence) {
+              flat.push({ evidence: ev, claim });
+            }
+          }
+        }
+        setItems(flat);
+        if (flat.length > 0 && !selectedItem) {
+          setSelectedItem(flat[0]);
+        }
+      } catch (fallbackErr) {
+        setError(err instanceof Error ? err.message : "Failed to load evidence records");
+      }
     } finally {
       setLoading(false);
     }
@@ -273,7 +311,7 @@ function EvidenceWorkspaceContent() {
             <div className="space-y-2.5 max-h-[750px] overflow-y-auto pr-1">
               {filteredItems.map(({ evidence: ev, claim }) => {
                 const isSelected = selectedItem?.evidence.id === ev.id;
-                const fileUrl = ev.thumbnailUrl || ev.url || getEvidenceFileUrl(ev.id);
+                const fileUrl = getAuthenticatedEvidenceUrl(ev);
 
                 return (
                   <div
@@ -285,15 +323,21 @@ function EvidenceWorkspaceContent() {
                         : "bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20"
                     }`}
                   >
-                    <div className="w-16 h-14 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 relative border border-white/5">
+                    <div className="w-16 h-14 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 relative border border-white/5 flex items-center justify-center">
                       <img
                         src={fileUrl}
                         alt={ev.originalFilename || ev.filename || "Evidence"}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
+                          const target = e.target as HTMLElement;
+                          target.style.display = "none";
+                          const fallback = target.parentElement?.querySelector(".img-fallback");
+                          if (fallback) (fallback as HTMLElement).style.display = "flex";
                         }}
                       />
+                      <div className="img-fallback hidden w-full h-full items-center justify-center text-xs text-[var(--text-muted)] bg-white/5">
+                        📷
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0 text-xs space-y-1">
@@ -409,12 +453,23 @@ function EvidenceWorkspaceContent() {
                   </div>
 
                   {/* Main Visual Display */}
-                  <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 max-h-[480px] flex items-center justify-center p-2">
+                  <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 min-h-[260px] max-h-[480px] flex items-center justify-center p-2">
                     <img
-                      src={selectedItem.evidence.url || getEvidenceFileUrl(selectedItem.evidence.id)}
+                      src={getAuthenticatedEvidenceUrl(selectedItem.evidence)}
                       alt={selectedItem.evidence.originalFilename || selectedItem.evidence.filename || "Selected Evidence"}
                       className="max-h-[460px] w-auto max-w-full rounded-xl object-contain shadow-2xl"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const fallback = target.parentElement?.querySelector(".main-img-fallback");
+                        if (fallback) (fallback as HTMLElement).style.display = "flex";
+                      }}
                     />
+                    <div className="main-img-fallback hidden flex-col items-center justify-center p-8 text-center text-[var(--text-muted)]">
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-2xl mb-2">📷</div>
+                      <p className="text-xs font-semibold text-white">Visual Preview Not Available</p>
+                      <p className="text-[10px] mt-1 font-mono">{selectedItem.evidence.originalFilename || selectedItem.evidence.id}</p>
+                    </div>
                   </div>
 
                   {/* Forensic Hashes Strip */}

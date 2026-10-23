@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     INTERNAL_SERVICE_TOKEN: str = "ethio_claim_internal_secret_key_2026"
-    PORT: int = 8000
+    PORT: int = 8001
     HOST: str = "0.0.0.0"
 
     # Qdrant Vector DB
@@ -16,14 +16,14 @@ class Settings(BaseSettings):
     QDRANT_COLLECTION: str = "ethio_claim_evidence_v1"
 
     # Vision Embedding Model
-    EMBEDDING_MODEL_NAME: str = "ethio-vision-encoder"
+    EMBEDDING_MODEL_NAME: str = "dinov2_small"
     EMBEDDING_MODEL_VERSION: str = "v1"
-    EMBEDDING_DIMENSION: int = 128
-    USE_MOCK_EMBEDDING_MODEL: bool = True
+    EMBEDDING_DIMENSION: int = 384
+    USE_MOCK_EMBEDDING_MODEL: bool = False
 
     # Damage Detection Model
-    DAMAGE_MODEL_PATH: str = "/models/damage-model.pt"
-    USE_MOCK_DAMAGE_MODEL: bool = True
+    DAMAGE_MODEL_PATH: str = "models/damage_best.pt"
+    USE_MOCK_DAMAGE_MODEL: bool = False
 
     # Image Processing Limits
     MAX_IMAGE_BYTES: int = 10 * 1024 * 1024  # 10 MB
@@ -34,8 +34,8 @@ class Settings(BaseSettings):
     # Thresholds for Screening & Risk Flags
     EXACT_HASH_SIMILARITY_THRESHOLD: float = 1.0
     PERCEPTUAL_HASH_DISTANCE_THRESHOLD: int = 8
-    VECTOR_SIMILARITY_FRAUD_THRESHOLD: float = 0.88
-    VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD: float = 0.78
+    VECTOR_SIMILARITY_FRAUD_THRESHOLD: float = 0.90
+    VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD: float = 0.80
     RULE_VERSION: str = "rules-v1"
 
     # Local fallback storage dir (for resolving NestJS local uploads)

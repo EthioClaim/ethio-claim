@@ -73,10 +73,12 @@ class VisualMatch(BaseModel):
 class RiskAssessment(BaseModel):
     label: str = Field(
         ...,
-        description="Screening risk label: POTENTIAL_FRAUD, NO_FRAUD_INDICATORS_FOUND, INCONCLUSIVE, or ANALYSIS_FAILED",
+        description="Screening risk label: POTENTIAL_FRAUD, NO_FRAUD_INDICATORS_FOUND, NO_DAMAGE_DETECTED, INCONCLUSIVE, or FAILED",
     )
-    score: Optional[float] = Field(None, description="Calibrated risk probability or null for rules-based MVP")
-    reasons: List[str] = Field(default_factory=list, description="Explicit bulleted rationales for the assigned risk label")
+    score: Optional[float] = Field(0.0, description="Calibrated risk score between 0.0 and 1.0")
+    reasons: List[str] = Field(default_factory=list, description="Explicit rationales for the assigned risk label")
+    matchedClaimIds: List[str] = Field(default_factory=list, description="Claim IDs associated with detected matches")
+    matchedEvidenceIds: List[str] = Field(default_factory=list, description="Evidence IDs associated with detected matches")
     requiresExaminerReview: bool = Field(..., description="Mandatory flag indicating if manual examiner assessment is required")
     ruleVersion: str = Field(..., description="Version of the risk screening rules applied")
 

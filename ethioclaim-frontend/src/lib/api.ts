@@ -39,7 +39,7 @@ import type {
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") ||
-  "http://localhost:3005/api/v1";
+  "http://localhost:3006/api/v1";
 
 // Create central Axios instance
 export const apiClient: AxiosInstance = axios.create({
@@ -465,10 +465,55 @@ export async function fetchEvidence(evidenceId: string): Promise<Evidence> {
 }
 
 /**
+ * List all evidence accessible to user: GET /api/v1/evidence
+ * (Examiner assigned claims, Admin all claims, Claimant own claims)
+ */
+export async function fetchEvidenceList(params?: {
+  claimId?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<Evidence[]> {
+  const { data } = await apiClient.get<any>("/evidence", { params });
+  if (Array.isArray(data)) return data;
+  if (data && Array.isArray(data.items)) return data.items;
+  return [];
+}
+
+/**
  * Secure file stream/download URL: GET /api/v1/evidence/:evidenceId/file
+ * Automatically appends Bearer token as query parameter for browser <img> loading
  */
 export function getEvidenceFileUrl(evidenceId: string): string {
-  return `${API_BASE_URL}/evidence/${evidenceId}/file`;
+  let url = `${API_BASE_URL}/evidence/${evidenceId}/file`;
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("ethioclaim_token");
+    if (token) {
+      url += `?token=${encodeURIComponent(token)}`;
+    }
+  }
+  return url;
+}
+
+/**
+ * Resolves a fully qualified, authenticated image URL for an evidence item.
+ * Supports relative API paths, direct URLs, and attaches authorization token.
+ */
+export function getAuthenticatedEvidenceUrl(
+  evidence: { id: string; url?: string; thumbnailUrl?: string } | null | undefined
+): string {
+  if (!evidence) return "";
+  let base = evidence.url || evidence.thumbnailUrl || `${API_BASE_URL}/evidence/${evidence.id}/file`;
+  if (base.startsWith("/")) {
+    base = `${API_BASE_URL.replace(/\/api\/v1$/, "")}${base}`;
+  }
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("ethioclaim_token");
+    if (token && !base.includes("token=")) {
+      const sep = base.includes("?") ? "&" : "?";
+      base = `${base}${sep}token=${encodeURIComponent(token)}`;
+    }
+  }
+  return base;
 }
 
 /**

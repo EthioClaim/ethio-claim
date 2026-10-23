@@ -7,6 +7,7 @@ import {
   fetchClaimEvidence,
   uploadClaimEvidence,
   getEvidenceFileUrl,
+  getAuthenticatedEvidenceUrl,
   deleteEvidence,
   fetchEvidenceAnalysis,
   reanalyzeEvidence,
@@ -315,7 +316,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
             <div className="space-y-2.5 max-h-[750px] overflow-y-auto pr-1">
               {evidenceList.map((ev) => {
                 const isSelected = ev.id === selectedId;
-                const fileUrl = ev.thumbnailUrl || ev.url || getEvidenceFileUrl(ev.id);
+                const fileUrl = getAuthenticatedEvidenceUrl(ev);
 
                 return (
                   <div
@@ -327,15 +328,21 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                         : "bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20"
                     }`}
                   >
-                    <div className="w-16 h-14 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 relative border border-white/5">
+                    <div className="w-16 h-14 rounded-xl overflow-hidden bg-black/40 flex-shrink-0 relative border border-white/5 flex items-center justify-center">
                       <img
                         src={fileUrl}
                         alt={ev.originalFilename || ev.filename || "Evidence"}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                          (e.target as HTMLElement).style.display = "none";
+                          const target = e.target as HTMLElement;
+                          target.style.display = "none";
+                          const fallback = target.parentElement?.querySelector(".thumb-fallback");
+                          if (fallback) (fallback as HTMLElement).style.display = "flex";
                         }}
                       />
+                      <div className="thumb-fallback hidden w-full h-full items-center justify-center text-xs text-[var(--text-muted)] bg-white/5">
+                        📷
+                      </div>
                     </div>
 
                     <div className="flex-1 min-w-0 text-xs space-y-1">
@@ -466,12 +473,23 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                   </div>
 
                   {/* Main Visual Display */}
-                  <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 max-h-[480px] flex items-center justify-center p-2">
+                  <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 min-h-[260px] max-h-[480px] flex items-center justify-center p-2">
                     <img
-                      src={selectedEvidence.url || getEvidenceFileUrl(selectedEvidence.id)}
+                      src={getAuthenticatedEvidenceUrl(selectedEvidence)}
                       alt={selectedEvidence.originalFilename || selectedEvidence.filename || "Selected Evidence"}
                       className="max-h-[460px] w-auto max-w-full rounded-xl object-contain shadow-2xl"
+                      onError={(e) => {
+                        const target = e.target as HTMLElement;
+                        target.style.display = "none";
+                        const fallback = target.parentElement?.querySelector(".main-img-fallback");
+                        if (fallback) (fallback as HTMLElement).style.display = "flex";
+                      }}
                     />
+                    <div className="main-img-fallback hidden flex-col items-center justify-center p-8 text-center text-[var(--text-muted)]">
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center text-2xl mb-2">📷</div>
+                      <p className="text-xs font-semibold text-white">Visual Preview Not Available</p>
+                      <p className="text-[10px] mt-1 font-mono">{selectedEvidence.originalFilename || selectedEvidence.id}</p>
+                    </div>
                   </div>
 
                   {/* Forensic Hashes Strip */}
