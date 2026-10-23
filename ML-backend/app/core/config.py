@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     # Qdrant Vector DB
     QDRANT_URL: str = "http://localhost:6333"
+    QDRANT_STORAGE_PATH: str = "./qdrant_storage"
     QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION: str = "ethio_claim_evidence_v1"
 
