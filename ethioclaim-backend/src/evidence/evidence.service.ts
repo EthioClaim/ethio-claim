@@ -346,26 +346,45 @@ export class EvidenceService {
         }),
       ]);
 
-      // Persist candidate visual vector matches discovered by Qdrant/FAISS
+      // Persist candidate visual vector matches discovered by Qdrant/FAISS safely
       if (aiResponse.visualMatches && aiResponse.visualMatches.length > 0) {
+        const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
         for (const vm of aiResponse.visualMatches) {
           if (vm.evidenceId && vm.evidenceId !== evidence.id) {
-            const existingMatch = await this.prisma.similarityMatch.findFirst({
-              where: {
-                sourceEvidenceId: evidence.id,
-                matchedEvidenceId: vm.evidenceId,
-              },
-            });
-            if (!existingMatch) {
-              await this.prisma.similarityMatch.create({
-                data: {
+            // Must be a valid UUID string to prevent PostgreSQL column casting errors
+            if (!UUID_REGEX.test(vm.evidenceId)) {
+              continue;
+            }
+
+            try {
+              // Ensure matched evidence exists in database to satisfy foreign key relation
+              const targetEvidence = await this.prisma.evidence.findUnique({
+                where: { id: vm.evidenceId },
+                select: { id: true, claimId: true },
+              });
+              if (!targetEvidence) {
+                continue;
+              }
+
+              const existingMatch = await this.prisma.similarityMatch.findFirst({
+                where: {
                   sourceEvidenceId: evidence.id,
                   matchedEvidenceId: vm.evidenceId,
-                  matchType: 'VISUAL_SIMILARITY',
-                  score: vm.similarity,
-                  distance: Math.round((1.0 - vm.similarity) * 100),
                 },
               });
+              if (!existingMatch) {
+                await this.prisma.similarityMatch.create({
+                  data: {
+                    sourceEvidenceId: evidence.id,
+                    matchedEvidenceId: vm.evidenceId,
+                    matchType: 'VISUAL_SIMILARITY',
+                    score: vm.similarity,
+                    distance: Math.round((1.0 - vm.similarity) * 100),
+                  },
+                });
+              }
+            } catch (matchErr: any) {
+              this.logger.warn(`Could not persist visual match with ${vm.evidenceId}: ${matchErr.message}`);
             }
           }
         }
@@ -411,8 +430,7 @@ export class EvidenceService {
           `AI flagged POTENTIAL_FRAUD for claim ${evidence.claimId} on evidence ${evidence.id}`,
         );
       }
-
-      // Alert if analysis completed AFTER an examiner decision was already recorded
+      // Check if prior decision was recorded
       const priorDecision =
         (evidence.claim as any)?.decisions?.[0]?.decision ||
         (['APPROVED', 'REJECTED', 'NEED_MORE_EVIDENCE'].includes(evidence.claim.status)
@@ -431,6 +449,29 @@ export class EvidenceService {
               priorDecision,
               riskAssessment: aiResponse.riskAssessment,
             } as any,
+          },
+        });
+      }
+
+      // Transition early-stage claim to SUBMITTED or READY_FOR_REVIEW upon clean AI analysis
+      if (['DRAFT', 'PROCESSING'].includes(evidence.claim.status) && !priorDecision) {
+        const nextStatus =
+          aiResponse.riskAssessment?.label === 'POTENTIAL_FRAUD'
+            ? 'READY_FOR_REVIEW'
+            : 'SUBMITTED';
+
+        await this.prisma.claim.update({
+          where: { id: evidence.claimId },
+          data: { status: nextStatus },
+        });
+
+        await this.prisma.auditEvent.create({
+          data: {
+            claimId: evidence.claimId,
+            actorId: evidence.uploadedById,
+            action: 'STATUS_CHANGED',
+            summary: `Claim transitioned to ${nextStatus} after AI analysis completed`,
+            details: { previousStatus: evidence.claim.status, newStatus: nextStatus },
           },
         });
       }
@@ -768,6 +809,7 @@ export class EvidenceService {
     await this.verifyClaimAccess(evidence.claimId, userId, role);
 
     const matches = evidence.matchedBy.map((m) => ({
+      id: m.id,
       matchedEvidenceId: m.matchedEvidenceId,
       claimId: m.matchedEvidence.claimId,
       claimNumber: m.matchedEvidence.claim.claimNumber,

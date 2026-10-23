@@ -104,10 +104,23 @@ export class UpdateClaimDto {
 
 export class RequestEvidenceDto {
   @IsString()
-  message: string;
+  @IsOptional()
+  message?: string;
 
   @IsOptional()
   requestedItems?: string[];
+
+  @IsOptional()
+  @IsString()
+  item?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  deadline?: string;
 }
 
 export class AssignExaminerDto {

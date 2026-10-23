@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use, useCallback, Suspense } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   fetchClaimEvidence,
   uploadClaimEvidence,
@@ -11,6 +11,7 @@ import {
   fetchEvidenceAnalysis,
   reanalyzeEvidence,
   fetchEvidenceMatches,
+  fetchCurrentUser,
 } from "@/lib/api";
 import { DamageFindings } from "@/components/ai/damage-findings";
 import { SimilarityResults } from "@/components/ai/similarity-results";
@@ -19,11 +20,14 @@ import type {
   Evidence,
   DamageAnalysis,
   SimilarityMatch,
+  CurrentUser,
 } from "@/types";
 
 function EvidenceInspectionContent({ claimId }: { claimId: string }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
 
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [evidenceList, setEvidenceList] = useState<Evidence[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,6 +45,20 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
   const [inspectLoading, setInspectLoading] = useState(false);
   const [reanalyzing, setReanalyzing] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("ethioclaim_user");
+        if (raw) setCurrentUser(JSON.parse(raw));
+      } catch {
+        // ignore
+      }
+    }
+    fetchCurrentUser().then(setCurrentUser).catch(() => {});
+  }, []);
+
+  const isExaminer = currentUser?.role === "EXAMINER";
 
   const loadEvidence = useCallback(async () => {
     setLoading(true);
@@ -90,6 +108,10 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
   }, [selectedId, inspectEvidence]);
 
   async function handleFiles(files: FileList | null) {
+    if (isExaminer) {
+      setError("Claims examiners are not permitted to submit claim evidence.");
+      return;
+    }
     if (!files || files.length === 0) return;
     setError("");
     setUploading(true);
@@ -101,12 +123,10 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
         }
         await uploadClaimEvidence(claimId, file, (pct) => setUploadProgress(pct));
       }
-      setSuccess("Evidence photo(s) uploaded and queued for processing");
-      setTimeout(() => setSuccess(""), 4000);
-      await loadEvidence();
+      // Section 2: Navigate back to /claims immediately with success indicator
+      router.push(`/claims?uploaded=true&claimId=${encodeURIComponent(claimId)}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Evidence upload failed");
-    } finally {
       setUploading(false);
       setUploadProgress(null);
     }
@@ -190,64 +210,83 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
         </div>
       )}
 
-      {/* Upload Dropzone (Max 10MB) */}
-      <div
-        id="evidence-upload-zone"
-        className={`card apple-glass p-8 sm:p-10 text-center cursor-pointer transition-all duration-300 ${
-          dragging ? "border-[#0A84FF] bg-[#0A84FF]/10 ring-4 ring-[#0A84FF]/20" : "hover:border-white/20 hover:bg-white/[0.04]"
-        }`}
-        style={{ borderStyle: "dashed", borderWidth: "2px" }}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          handleFiles(e.dataTransfer.files);
-        }}
-        onClick={() => document.getElementById("evidence-file-input")?.click()}
-      >
-        <input
-          id="evidence-file-input"
-          type="file"
-          multiple
-          accept="image/jpeg,image/png,image/webp,image/heic"
-          className="hidden"
-          onChange={(e) => handleFiles(e.target.files)}
-        />
+      {/* Upload Dropzone (Claimant/Intake) or Examiner Review Notice */}
+      {!isExaminer ? (
+        <div
+          id="evidence-upload-zone"
+          className={`card apple-glass p-8 sm:p-10 text-center cursor-pointer transition-all duration-300 ${
+            dragging ? "border-[#0A84FF] bg-[#0A84FF]/10 ring-4 ring-[#0A84FF]/20" : "hover:border-white/20 hover:bg-white/[0.04]"
+          }`}
+          style={{ borderStyle: "dashed", borderWidth: "2px" }}
+          onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            handleFiles(e.dataTransfer.files);
+          }}
+          onClick={() => document.getElementById("evidence-file-input")?.click()}
+        >
+          <input
+            id="evidence-file-input"
+            type="file"
+            multiple
+            accept="image/jpeg,image/png,image/webp,image/heic"
+            className="hidden"
+            onChange={(e) => handleFiles(e.target.files)}
+          />
 
-        {uploading ? (
-          <div className="flex flex-col items-center gap-3">
-            <svg className="w-9 h-9 animate-spin text-[#0A84FF]" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-            </svg>
-            <div className="space-y-1">
-              <p className="text-sm font-semibold text-[#64D2FF]">
-                Streaming file & computing cryptographic digests…
-              </p>
-              {uploadProgress !== null && (
-                <p className="text-xs text-[var(--text-muted)] font-mono">{uploadProgress}% transferred</p>
-              )}
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-[#0A84FF]/10 border border-[#0A84FF]/25 flex items-center justify-center text-[#0A84FF]">
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+          {uploading ? (
+            <div className="flex flex-col items-center gap-3">
+              <svg className="w-9 h-9 animate-spin text-[#0A84FF]" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
               </svg>
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-[#64D2FF]">
+                  Streaming file & computing cryptographic digests…
+                </p>
+                {uploadProgress !== null && (
+                  <p className="text-xs text-[var(--text-muted)] font-mono">{uploadProgress}% transferred</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-[#0A84FF]/10 border border-[#0A84FF]/25 flex items-center justify-center text-[#0A84FF]">
+                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white tracking-tight">
+                  Drop vehicle damage photos here, or click to browse
+                </p>
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  JPEG, PNG, WEBP, or HEIC • Max 10MB per photo • Automatically hashed and forwarded for AI analysis
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="card apple-glass p-5 border border-[#0A84FF]/30 bg-[#0A84FF]/5 flex items-center justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-[#0A84FF]/15 border border-[#0A84FF]/30 text-[#64D2FF] flex items-center justify-center text-lg">
+              🛡️
             </div>
             <div>
-              <p className="text-sm font-bold text-white tracking-tight">
-                Drop vehicle damage photos here, or click to browse
-              </p>
-              <p className="text-xs text-[var(--text-muted)] mt-1">
-                JPEG, PNG, WEBP, or HEIC • Max 10MB per photo • Automatically hashed and forwarded for AI analysis
+              <p className="text-xs font-bold text-white uppercase tracking-wider">Examiner Inspection Mode</p>
+              <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                Evidence submission is restricted to claimants and intake officers. Review assigned forensic metadata and AI findings below.
               </p>
             </div>
           </div>
-        )}
-      </div>
+          <span className="badge text-[10px] bg-[#0A84FF]/15 text-[#64D2FF] border border-[#0A84FF]/30">
+            Assigned Queue
+          </span>
+        </div>
+      )}
 
       {/* Main Evidence Workspace: Left Thumbnails List, Right Deep Inspection */}
       {loading ? (
@@ -258,7 +297,11 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
       ) : evidenceList.length === 0 ? (
         <div className="card apple-glass p-12 text-center text-[var(--text-muted)]">
           <p className="text-sm font-semibold text-white">No Evidence Uploaded</p>
-          <p className="text-xs mt-1">Upload vehicle photos above to view forensic hashes, damage detections, and candidate matches.</p>
+          <p className="text-xs mt-1">
+            {isExaminer
+              ? "No photos have been uploaded for this assigned claim yet."
+              : "Upload vehicle photos above to view forensic hashes, damage detections, and candidate matches."}
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
@@ -308,11 +351,33 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                         <span>•</span>
                         <span>{formatDate(ev.uploadedAt)}</span>
                       </div>
-                      {ev.analysisStatus && (
-                        <span className="badge text-[9px] font-semibold bg-white/10 text-white/80">
-                          {ev.analysisStatus}
-                        </span>
-                      )}
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        {ev.analysisStatus === "PENDING" && (
+                          <span className="badge text-[9px] font-semibold bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 animate-pulse">
+                            AI Processing
+                          </span>
+                        )}
+                        {(ev.hasMatches || (ev as any).matches?.length > 0 || (ev as any).riskLabel === "POTENTIAL_FRAUD") && (
+                          <span className="badge text-[9px] font-semibold bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
+                            Fraud Review
+                          </span>
+                        )}
+                        {((ev as any).noDamageDetected || (ev.analysisStatus === "COMPLETED" && (ev as any).detections?.length === 0)) && (
+                          <span className="badge text-[9px] font-semibold bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40">
+                            No Damage
+                          </span>
+                        )}
+                        {ev.analysisStatus === "COMPLETED" && (
+                          <span className="badge text-[9px] font-semibold bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30">
+                            Completed
+                          </span>
+                        )}
+                        {ev.analysisStatus === "FAILED" && (
+                          <span className="badge text-[9px] font-semibold bg-[#FF453A]/15 text-[#FF6961] border border-[#FF453A]/30">
+                            Failed
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );
@@ -361,16 +426,43 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                         </svg>
                       </a>
 
-                      <button
-                        onClick={() => setDeletingId(selectedEvidence.id)}
-                        className="btn btn-secondary text-xs py-1.5 px-2.5 text-[#FF6961] hover:bg-[#FF453A]/10 border-white/10"
-                        title="Delete photo safely (Section 2.4)"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                      {!isExaminer && (
+                        <button
+                          onClick={() => setDeletingId(selectedEvidence.id)}
+                          className="btn btn-secondary text-xs py-1.5 px-2.5 text-[#FF6961] hover:bg-[#FF453A]/10 border-white/10"
+                          title="Delete photo safely (Section 2.4)"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
                     </div>
+                  </div>
+
+                  {/* AI Status Banner */}
+                  <div className="flex flex-wrap items-center gap-2 pt-1">
+                    {analysis?.status === "PENDING" && (
+                      <span className="badge bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 text-xs px-2.5 py-1 animate-pulse">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF] inline-block mr-1.5" />
+                        AI Processing
+                      </span>
+                    )}
+                    {(matches.length > 0 || analysis?.riskAssessment?.label === "POTENTIAL_FRAUD") && (
+                      <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
+                        ⚠️ Fraud Review Flagged ({matches.length} Matches)
+                      </span>
+                    )}
+                    {analysis?.status === "COMPLETED" && (!analysis?.detections || analysis.detections.length === 0) && (
+                      <span className="badge bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40 text-xs px-2.5 py-1 font-semibold">
+                        🔍 No Damage Detected (Examiner Cross-Check Required)
+                      </span>
+                    )}
+                    {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
+                      <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
+                        ✓ AI Damage Localized ({analysis.detections.length} Parts)
+                      </span>
+                    )}
                   </div>
 
                   {/* Main Visual Display */}

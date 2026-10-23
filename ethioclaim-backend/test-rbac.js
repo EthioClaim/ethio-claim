@@ -206,6 +206,19 @@ async function run() {
       });
       assert(unassignedAssess.status === 403, 'Unassigned examiner blocked from assessing claim (403 Forbidden)');
 
+      const unassignedReqEv = await request(`/claims/${testClaimId}/request-evidence`, {
+        method: 'POST',
+        token: examinerToken,
+        body: { message: 'Attempting evidence request before assignment' },
+      });
+      assert(unassignedReqEv.status === 403, 'Unassigned examiner blocked from request-evidence (403 Forbidden)');
+
+      const unassignedStartReview = await request(`/claims/${testClaimId}/start-review`, {
+        method: 'POST',
+        token: examinerToken,
+      });
+      assert(unassignedStartReview.status === 403, 'Unassigned examiner blocked from start-review (403 Forbidden)');
+
       // Fetch examiner ID and assign claim to this examiner via Admin
       const examinerMe = await request('/auth/me', { token: examinerToken });
       const examinerId = examinerMe.data?.id;
@@ -221,7 +234,14 @@ async function run() {
         assert(assignRes.status === 200, 'Admin successfully assigned examiner to claim (200 OK)');
       }
 
-      // Examiner CAN request additional information/evidence
+      // Assigned Examiner can start review (transitions to UNDER_REVIEW)
+      const startRevRes = await request(`/claims/${testClaimId}/start-review`, {
+        method: 'POST',
+        token: examinerToken,
+      });
+      assert(startRevRes.status === 200, 'Assigned examiner successfully transitioned claim to UNDER_REVIEW (200 OK)');
+
+      // Assigned Examiner CAN request additional information/evidence
       const reqInfo = await request(`/claims/${testClaimId}/request-information`, {
         method: 'POST',
         token: examinerToken,
@@ -231,6 +251,17 @@ async function run() {
         },
       });
       assert(reqInfo.status === 200 || reqInfo.status === 201, 'Examiner successfully dispatched request-information (200 OK)');
+
+      // Also verify request-evidence with item & notes
+      const reqEv = await request(`/claims/${testClaimId}/request-evidence`, {
+        method: 'POST',
+        token: examinerToken,
+        body: {
+          item: 'Police accident report',
+          notes: 'Signed and stamped copy from local precinct',
+        },
+      });
+      assert(reqEv.status === 200 || reqEv.status === 201, 'Examiner successfully dispatched request-evidence with item/notes (201 Created)');
 
       // Assigned Examiner CAN record assessment
       const examinerAssess = await request(`/claims/${testClaimId}/assessment`, {

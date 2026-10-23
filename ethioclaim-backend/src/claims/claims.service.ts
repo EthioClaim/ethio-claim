@@ -12,6 +12,7 @@ import {
   AssignExaminerDto,
   CloseClaimDto,
   SubmitClaimDto,
+  RequestEvidenceDto,
 } from './dto/claims.dto';
 
 // Valid status transitions
@@ -541,6 +542,25 @@ export class ClaimsService {
       if (!isAssigned) {
         throw new ForbiddenException('Access denied: this claim is not assigned to you');
       }
+
+      // Automatically transition eligible assigned claims to UNDER_REVIEW upon examiner inspection
+      if (['SUBMITTED', 'READY_FOR_REVIEW', 'PROCESSING'].includes(claim.status)) {
+        const previousStatus = claim.status;
+        await this.prisma.claim.update({
+          where: { id: claimId },
+          data: { status: 'UNDER_REVIEW' },
+        });
+        await this.prisma.auditEvent.create({
+          data: {
+            claimId,
+            actorId: userId,
+            action: 'STATUS_CHANGED',
+            summary: `Claim transitioned to UNDER_REVIEW upon examiner review`,
+            details: { previousStatus, newStatus: 'UNDER_REVIEW' },
+          },
+        });
+        claim.status = 'UNDER_REVIEW';
+      }
     }
 
     return formatClaim(claim);
@@ -755,6 +775,10 @@ export class ClaimsService {
     }
 
     if (userRole === 'EXAMINER') {
+      const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+      }
       // Examiners cannot arbitrarily approve, reject, or close without decision endpoint
       if (['APPROVED', 'REJECTED', 'CLOSED'].includes(dto.status)) {
         throw new ForbiddenException('Final decisions must be recorded via the decision action');
@@ -816,9 +840,65 @@ export class ClaimsService {
     };
   }
 
-  async requestEvidence(claimId: string, dto: any, userId: string) {
+  async startReview(claimId: string, userId: string, userRole: string) {
     const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
     if (!claim) throw new NotFoundException('Claim not found');
+
+    if (userRole === 'EXAMINER') {
+      const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+      }
+    }
+
+    if (claim.status === 'UNDER_REVIEW') {
+      return { id: claimId, status: 'UNDER_REVIEW', alreadyUnderReview: true };
+    }
+
+    if (['ASSESSED', 'APPROVED', 'REJECTED', 'CLOSED'].includes(claim.status)) {
+      return { id: claimId, status: claim.status, message: 'Claim is in a later review stage' };
+    }
+
+    const previousStatus = claim.status;
+    const updated = await this.prisma.claim.update({
+      where: { id: claimId },
+      data: { status: 'UNDER_REVIEW' },
+    });
+
+    await this.prisma.auditEvent.create({
+      data: {
+        claimId,
+        actorId: userId,
+        action: 'STATUS_CHANGED',
+        summary: `Status transitioned from ${previousStatus} to UNDER_REVIEW upon examiner review`,
+        details: { previousStatus, newStatus: 'UNDER_REVIEW' },
+      },
+    });
+
+    return {
+      id: updated.id,
+      status: updated.status,
+      previousStatus,
+    };
+  }
+
+  async requestEvidence(claimId: string, dto: RequestEvidenceDto, userId: string, userRole?: string) {
+    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    if (userRole === 'EXAMINER') {
+      const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+      }
+    }
+
+    const message =
+      dto.message?.trim() ||
+      (dto.notes?.trim() ? `${dto.item?.trim() || 'Evidence'} - ${dto.notes.trim()}` : dto.item?.trim()) ||
+      'Additional evidence requested';
+
+    const requestedItems = dto.requestedItems || (dto.item ? [dto.item.trim()] : []);
 
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
@@ -830,8 +910,14 @@ export class ClaimsService {
         claimId,
         actorId: userId,
         action: 'EVIDENCE_REQUESTED',
-        summary: dto.message,
-        details: { requestedItems: dto.requestedItems },
+        summary: message,
+        details: {
+          message,
+          requestedItems,
+          item: dto.item,
+          notes: dto.notes,
+          deadline: dto.deadline,
+        },
       },
     });
 
@@ -839,7 +925,8 @@ export class ClaimsService {
       id: claimId,
       claimId,
       status: updated.status,
-      message: dto.message,
+      message,
+      requestedItems,
     };
   }
 }

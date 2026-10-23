@@ -309,7 +309,13 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     setError("");
 
     try {
+      const message = requestNotes.trim()
+        ? `${requestItem.trim()} - ${requestNotes.trim()}`
+        : requestItem.trim();
+
       await requestClaimEvidence(claim.id, {
+        message,
+        requestedItems: [requestItem.trim()],
         item: requestItem.trim(),
         notes: requestNotes.trim() || undefined,
         deadline: requestDeadline || undefined,

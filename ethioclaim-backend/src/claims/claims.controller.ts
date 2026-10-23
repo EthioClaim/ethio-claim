@@ -123,6 +123,13 @@ export class ClaimsController {
     return this.claimsService.getTimeline(claimId, req.user.id, req.user.role);
   }
 
+  @Post(':claimId/start-review')
+  @Roles('EXAMINER', 'ADMIN')
+  @HttpCode(HttpStatus.OK)
+  startReview(@Param('claimId') claimId: string, @Req() req: any) {
+    return this.claimsService.startReview(claimId, req.user.id, req.user.role);
+  }
+
   @Post(':claimId/request-evidence')
   @Roles('EXAMINER', 'ADMIN')
   @HttpCode(HttpStatus.CREATED)
@@ -131,7 +138,7 @@ export class ClaimsController {
     @Body() dto: RequestEvidenceDto,
     @Req() req: any,
   ) {
-    return this.claimsService.requestEvidence(claimId, dto, req.user.id);
+    return this.claimsService.requestEvidence(claimId, dto, req.user.id, req.user.role);
   }
 
   @Post(':claimId/request-information')
@@ -142,7 +149,7 @@ export class ClaimsController {
     @Body() dto: RequestEvidenceDto,
     @Req() req: any,
   ) {
-    return this.claimsService.requestEvidence(claimId, dto, req.user.id);
+    return this.claimsService.requestEvidence(claimId, dto, req.user.id, req.user.role);
   }
 }
 

@@ -76,11 +76,22 @@ export class AssessmentService {
       },
     });
 
-    // Automatically transition status to ASSESSED if under review
-    if (claim.status === 'UNDER_REVIEW') {
+    // Automatically transition status to ASSESSED upon assessment submission
+    if (!['APPROVED', 'REJECTED', 'CLOSED'].includes(claim.status)) {
+      const previousStatus = claim.status;
       await this.prisma.claim.update({
         where: { id: claimId },
         data: { status: 'ASSESSED' },
+      });
+
+      await this.prisma.auditEvent.create({
+        data: {
+          claimId,
+          actorId: examinerId,
+          action: 'STATUS_CHANGED',
+          summary: `Claim transitioned from ${previousStatus} to ASSESSED upon examiner assessment`,
+          details: { previousStatus, newStatus: 'ASSESSED' },
+        },
       });
     }
 
