@@ -1,0 +1,37 @@
+"use client";
+
+import { getStatusColor, getStatusLabel, getRiskBadgeColor } from "@/lib/utils";
+import type { ClaimStatus, RiskLevel } from "@/types";
+
+export function ClaimStatusBadge({ status }: { status: ClaimStatus }) {
+  return (
+    <span className={`badge ${getStatusColor(status)} shadow-xs`}>
+      <span className="w-1.5 h-1.5 rounded-full opacity-70 bg-current inline-block" />
+      {getStatusLabel(status)}
+    </span>
+  );
+}
+
+export function RiskBadge({ risk }: { risk: RiskLevel }) {
+  return (
+    <span className={`badge ${getRiskBadgeColor(risk)} shadow-xs`}>
+      {risk}
+    </span>
+  );
+}
+
+export function AIProcessingBadge() {
+  return (
+    <span 
+      className="badge shadow-xs" 
+      style={{ 
+        background: "rgba(100, 210, 255, 0.12)", 
+        color: "#64D2FF", 
+        border: "1px solid rgba(100, 210, 255, 0.3)" 
+      }}
+    >
+      <span className="w-1.5 h-1.5 rounded-full mr-1 animate-pulse bg-[#64D2FF] inline-block" />
+      AI Processing
+    </span>
+  );
+}
