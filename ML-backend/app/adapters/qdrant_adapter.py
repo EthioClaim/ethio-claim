@@ -90,10 +90,20 @@ class QdrantAdapter:
 
     async def check_health(self) -> Dict[str, Any]:
         """
-        Pings remote Qdrant to check readiness, falling back to embedded local disk storage.
+        Pings remote Qdrant to check readiness if not in embedded mode,
+        falling back to embedded local disk storage.
         """
+        if getattr(settings, "USE_EMBEDDED_QDRANT", False):
+            return {
+                "connected": False,
+                "mode": "embedded_disk_storage",
+                "storagePath": str(self.storage_file),
+                "indexedPoints": len(self._memory_points),
+            }
+
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            timeout = httpx.Timeout(connect=1.0, read=2.0, write=2.0, pool=2.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 res = await client.get(f"{self.base_url}/healthz", headers=self._get_headers())
                 if res.status_code == 200:
                     self._is_qdrant_healthy = True
@@ -118,8 +128,22 @@ class QdrantAdapter:
         """
         Ensures the target collection exists on remote Qdrant or local disk storage.
         """
+        # If explicitly in embedded mode, skip remote network probes entirely
+        if getattr(settings, "USE_EMBEDDED_QDRANT", False):
+            if not self._warned_fallback:
+                logger.info(
+                    f"Using resilient embedded local disk storage at {self.storage_file} ({len(self._memory_points)} points indexed)."
+                )
+                self._warned_fallback = True
+            self._is_qdrant_healthy = False
+            self.storage_dir.mkdir(parents=True, exist_ok=True)
+            if not self.storage_file.exists():
+                self._save_to_disk()
+            return True
+
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            timeout = httpx.Timeout(connect=1.0, read=2.0, write=2.0, pool=2.0)
+            async with httpx.AsyncClient(timeout=timeout) as client:
                 res = await client.get(
                     f"{self.base_url}/collections/{self.collection_name}",
                     headers=self._get_headers(),
@@ -147,7 +171,7 @@ class QdrantAdapter:
         except Exception as e:
             if not self._warned_fallback:
                 logger.warning(
-                    f"Could not reach Qdrant server ({str(e)}). Using embedded local disk storage at {self.storage_file}."
+                    f"Remote Qdrant unavailable ({str(e)}). Using resilient embedded local disk storage at {self.storage_file}."
                 )
                 self._warned_fallback = True
             self._is_qdrant_healthy = False
@@ -179,32 +203,30 @@ class QdrantAdapter:
             }
             self._save_to_disk()
 
-        # Attempt to upsert to real Qdrant
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                await self.ensure_collection()
-                body = {
-                    "points": [
-                        {
-                            "id": point_id,
-                            "vector": vector,
-                            "payload": payload,
-                        }
-                    ]
-                }
-                res = await client.put(
-                    f"{self.base_url}/collections/{self.collection_name}/points?wait=true",
-                    headers=self._get_headers(),
-                    json=body,
-                )
-                if res.status_code == 200:
-                    self._is_qdrant_healthy = True
-                    return True
-        except Exception as e:
-            logger.warning(
-                f"Remote Qdrant unreachable ({str(e)}). Safely persisted point {point_id} to embedded local disk storage."
-            )
-            self._is_qdrant_healthy = False
+        # Synchronize to remote Qdrant only if remote server is healthy
+        if self._is_qdrant_healthy and not getattr(settings, "USE_EMBEDDED_QDRANT", False):
+            try:
+                timeout = httpx.Timeout(connect=1.0, read=2.0, write=2.0, pool=2.0)
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    body = {
+                        "points": [
+                            {
+                                "id": point_id,
+                                "vector": vector,
+                                "payload": payload,
+                            }
+                        ]
+                    }
+                    res = await client.put(
+                        f"{self.base_url}/collections/{self.collection_name}/points?wait=true",
+                        headers=self._get_headers(),
+                        json=body,
+                    )
+                    if res.status_code == 200:
+                        return True
+            except Exception as e:
+                logger.warning(f"Remote Qdrant sync error ({str(e)}); kept in embedded local storage.")
+                self._is_qdrant_healthy = False
 
         return True
 
@@ -214,10 +236,11 @@ class QdrantAdapter:
         top_k: int = 5,
         tenant_id: Optional[str] = "default",
         exclude_evidence_id: Optional[str] = None,
+        exclude_claim_id: Optional[str] = None,
         min_similarity: float = 0.0,
     ) -> List[Dict[str, Any]]:
         """
-        Searches nearest neighbors, filtering by tenant and excluding target evidence.
+        Searches nearest neighbors, filtering by tenant and excluding target evidence/claim.
         Uses remote Qdrant when healthy, otherwise searches embedded local disk storage.
         """
         # Try remote Qdrant first if healthy
@@ -230,6 +253,8 @@ class QdrantAdapter:
                     must_filters.append({"key": "tenant_id", "match": {"value": tenant_id}})
                 if exclude_evidence_id:
                     must_not_filters.append({"key": "evidence_id", "match": {"value": exclude_evidence_id}})
+                if exclude_claim_id:
+                    must_not_filters.append({"key": "claim_id", "match": {"value": exclude_claim_id}})
 
                 search_filter: Dict[str, Any] = {}
                 if must_filters:
@@ -273,15 +298,22 @@ class QdrantAdapter:
         # Embedded local disk storage search fallback
         results = []
         for pid, pt in self._memory_points.items():
-            payload = pt["payload"]
+            payload = pt.get("payload", {})
             # Tenant filter
             if tenant_id and payload.get("tenant_id") != tenant_id:
                 continue
             # Exclude evidence filter
             if exclude_evidence_id and payload.get("evidence_id") == exclude_evidence_id:
                 continue
+            # Exclude same claim filter
+            if exclude_claim_id and payload.get("claim_id") == exclude_claim_id:
+                continue
 
-            sim = self._cosine_sim(query_vector, pt["vector"])
+            pt_vec = pt.get("vector", [])
+            if len(pt_vec) != len(query_vector):
+                continue
+
+            sim = self._cosine_sim(query_vector, pt_vec)
             if sim >= min_similarity:
                 results.append(
                     {

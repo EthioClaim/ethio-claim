@@ -1,3 +1,11 @@
+import sys
+from pathlib import Path
+
+# Ensure ML-backend directory is on sys.path
+_project_root = str(Path(__file__).resolve().parent.parent)
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+
 import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
@@ -61,4 +69,24 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app.main:app", host=settings.HOST, port=settings.PORT, reload=True)
+    app_dir = str(Path(__file__).resolve().parent)
+    uvicorn.run(
+        "app.main:app",
+        host=settings.HOST,
+        port=settings.PORT,
+        reload=True,
+        reload_dirs=[app_dir],
+        reload_includes=["*.py"],
+        reload_excludes=[
+            "*qdrant_storage*",
+            "*.json",
+            "*.tmp",
+            "*.pt",
+            "*.safetensors",
+            "*models*",
+            "*tests*",
+            "*.log",
+            "*__pycache__*",
+            "*.pytest_cache*",
+        ],
+    )
