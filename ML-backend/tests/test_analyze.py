@@ -7,6 +7,19 @@ from app.main import app
 from app.core.config import settings
 
 
+from app.adapters.qdrant_adapter import qdrant_adapter
+
+
+@pytest.fixture(autouse=True)
+def isolate_qdrant_store():
+    # Save original in-memory points
+    original = dict(qdrant_adapter._memory_points)
+    yield
+    # Restore original points so test fixture points are never persisted
+    qdrant_adapter._memory_points = original
+    qdrant_adapter._save_to_disk()
+
+
 def create_dummy_base64_image() -> str:
     img = Image.new("RGB", (200, 200), color=(200, 50, 50))
     buf = io.BytesIO()

@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     INTERNAL_SERVICE_TOKEN: str = "ethio_claim_internal_secret_key_2026"
-    PORT: int = 8001
+    PORT: int = 8000
     HOST: str = "0.0.0.0"
 
     # Qdrant Vector DB
@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     QDRANT_STORAGE_PATH: str = "./qdrant_storage"
     QDRANT_API_KEY: str = ""
     QDRANT_COLLECTION: str = "ethio_claim_evidence_v1"
+    USE_EMBEDDED_QDRANT: bool = True
 
     # Vision Embedding Model
     EMBEDDING_MODEL_NAME: str = "dinov2_small"
@@ -35,7 +36,7 @@ class Settings(BaseSettings):
     EXACT_HASH_SIMILARITY_THRESHOLD: float = 1.0
     PERCEPTUAL_HASH_DISTANCE_THRESHOLD: int = 8
     VECTOR_SIMILARITY_FRAUD_THRESHOLD: float = 0.90
-    VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD: float = 0.80
+    VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD: float = 0.85
     RULE_VERSION: str = "rules-v1"
 
     # Local fallback storage dir (for resolving NestJS local uploads)

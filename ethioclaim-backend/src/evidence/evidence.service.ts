@@ -618,15 +618,21 @@ export class EvidenceService {
       }
 
       const allAssignedIds = Array.from(new Set([...assessedClaimIds, ...assignedEventClaimIds]));
-      where.claimId = { in: allAssignedIds };
-    }
-
-    if (query.claimId) {
+      if (query.claimId) {
+        if (!allAssignedIds.includes(query.claimId)) {
+          where.claimId = { in: [] };
+        } else {
+          where.claimId = query.claimId;
+        }
+      } else {
+        where.claimId = { in: allAssignedIds };
+      }
+    } else if (query.claimId) {
       where.claimId = query.claimId;
     }
 
     if (query.status) {
-      if (query.status === 'PROCESSING') {
+      if (query.status === 'PROCESSING' || query.status === 'PENDING') {
         where.analysisStatus = { in: ['PENDING', 'PROCESSING'] };
       } else if (query.status === 'COMPLETED') {
         where.analysisStatus = 'COMPLETED';

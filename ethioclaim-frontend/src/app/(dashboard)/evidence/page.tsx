@@ -165,13 +165,18 @@ function EvidenceWorkspaceContent() {
 
     const matchesStatus =
       !statusFilter ||
-      (statusFilter === "PROCESSING" && evidence.analysisStatus === "PENDING") ||
+      (statusFilter === "PROCESSING" &&
+        (evidence.analysisStatus === "PENDING" || evidence.analysisStatus === "PROCESSING")) ||
       (statusFilter === "FRAUD" &&
-        (evidence.hasMatches || (evidence as any).matches?.length > 0)) ||
+        (evidence.hasMatches ||
+          (evidence as any).matches?.length > 0 ||
+          (evidence as any).analysis?.detections?.riskAssessment?.label === "POTENTIAL_FRAUD")) ||
       (statusFilter === "NO_DAMAGE" &&
         ((evidence as any).noDamageDetected ||
           (evidence.analysisStatus === "COMPLETED" &&
-            (evidence as any).detections?.length === 0))) ||
+            ((evidence as any).detections?.length === 0 ||
+              (evidence as any).analysis?.detections?.damageDetections?.length === 0)))) ||
+      (statusFilter === "FAILED" && evidence.analysisStatus === "FAILED") ||
       (statusFilter === "COMPLETED" && evidence.analysisStatus === "COMPLETED");
 
     return matchesQ && matchesStatus;
@@ -254,10 +259,11 @@ function EvidenceWorkspaceContent() {
           onChange={(e) => setStatusFilter(e.target.value)}
         >
           <option value="">All AI States</option>
-          <option value="PROCESSING">AI Processing</option>
+          <option value="PROCESSING">AI Processing / Pending</option>
           <option value="FRAUD">Fraud Review</option>
           <option value="NO_DAMAGE">No Damage Detected</option>
           <option value="COMPLETED">Completed</option>
+          <option value="FAILED">Analysis Failed / Manual Check</option>
         </select>
 
         <button
@@ -356,7 +362,7 @@ function EvidenceWorkspaceContent() {
                         <span>{formatDate(ev.uploadedAt)}</span>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 mt-1">
-                        {ev.analysisStatus === "PENDING" && (
+                        {(ev.analysisStatus === "PENDING" || ev.analysisStatus === "PROCESSING") && (
                           <span className="badge text-[9px] font-semibold bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 animate-pulse">
                             AI Processing
                           </span>
@@ -374,6 +380,11 @@ function EvidenceWorkspaceContent() {
                         {ev.analysisStatus === "COMPLETED" && (
                           <span className="badge text-[9px] font-semibold bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30">
                             Completed
+                          </span>
+                        )}
+                        {ev.analysisStatus === "FAILED" && (
+                          <span className="badge text-[9px] font-semibold bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
+                            Failed / Review
                           </span>
                         )}
                       </div>
@@ -448,6 +459,11 @@ function EvidenceWorkspaceContent() {
                     {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
                       <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
                         ✓ AI Damage Localized ({analysis.detections.length} Parts)
+                      </span>
+                    )}
+                    {(analysis?.status === "FAILED" || selectedItem.evidence.analysisStatus === "FAILED") && (
+                      <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
+                        ⚠️ AI Inconclusive / Failed (Examiner Manual Inspection Required)
                       </span>
                     )}
                   </div>

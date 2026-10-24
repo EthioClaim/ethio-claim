@@ -18,7 +18,7 @@ export class AiService {
     this.baseUrl = (
       this.configService.get<string>('ML_SERVICE_URL') ||
       process.env.ML_SERVICE_URL ||
-      'http://127.0.0.1:8001'
+      'http://127.0.0.1:8000'
     ).replace(/\/$/, '');
 
     this.internalToken =
