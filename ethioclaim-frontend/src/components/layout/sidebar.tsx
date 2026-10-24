@@ -43,6 +43,14 @@ const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
         ),
       },
       {
+        href: "/evidence",
+        label: "Evidence Inspection",
+        allowedRoles: ["EXAMINER", "ADMIN"],
+        icon: (
+          <NavIcon path="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        ),
+      },
+      {
         href: "/claims/new",
         label: "New Claim Intake",
         allowedRoles: ["INTAKE_USER", "ADMIN"],
@@ -102,7 +110,12 @@ const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
   },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
@@ -130,7 +143,7 @@ export default function Sidebar() {
   }
 
   return (
-    <aside className="sidebar apple-sidebar">
+    <aside className={`sidebar apple-sidebar ${isOpen ? "mobile-open" : ""}`}>
       {/* Brand Header */}
       <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--border)]">
         <div
@@ -154,6 +167,19 @@ export default function Sidebar() {
             Claims Portal
           </span>
         </div>
+
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close navigation"
+            className="lg:hidden ml-auto p-1.5 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* Navigation Groups */}
@@ -201,7 +227,8 @@ export default function Sidebar() {
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all ${
+                        onClick={() => onClose?.()}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition-all ${
                           isActive
                             ? "bg-[#0A84FF] text-white shadow-sm"
                             : "text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.06]"

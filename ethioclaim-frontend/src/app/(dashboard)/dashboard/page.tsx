@@ -161,8 +161,9 @@ export default function DashboardPage() {
             <div className="text-3xl font-extrabold text-[#FF453A] font-mono">
               {loading ? "…" : summary?.adminMetrics?.failedAnalyses ?? 0}
             </div>
-            <Link href="/admin/operations" className="text-[11px] text-[#0A84FF] hover:underline block">
-              Manage in Operations ?
+            <Link href="/admin/operations" className="text-[11px] text-[#0A84FF] hover:underline flex items-center gap-1">
+              <span>Manage in Operations</span>
+              <span>→</span>
             </Link>
           </div>
         </div>

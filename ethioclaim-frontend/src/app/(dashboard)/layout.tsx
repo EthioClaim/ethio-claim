@@ -21,6 +21,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [mockActive, setMockActive] = useState<boolean>(false);
   const [retrying, setRetrying] = useState<boolean>(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false);
+
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     const unsub = subscribeToMockFallbackState((active) => {
@@ -122,11 +127,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       </div>
 
+      {/* Mobile Drawer Backdrop Scrim */}
+      {mobileNavOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+          onClick={() => setMobileNavOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       {/* Structural Translucent Sidebar */}
-      <Sidebar />
+      <Sidebar isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       {/* Main Content Area */}
-      <div className="relative z-10 flex flex-1 flex-col min-w-0 min-h-screen" style={{ marginLeft: "var(--sidebar-width)" }}>
+      <div className="relative z-10 flex flex-1 flex-col min-w-0 min-h-screen" style={{ marginLeft: "var(--sidebar-offset)" }}>
         {mockActive && (
           <div className="sticky top-0 z-40 bg-[#FF9F0A]/15 border-b border-[#FF9F0A]/35 px-4 py-2.5 flex items-center justify-between text-xs text-[#FFD60A] backdrop-blur-md">
             <div className="flex items-center gap-2">
@@ -146,7 +160,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </button>
           </div>
         )}
-        <Topbar />
+        <Topbar onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
         <main className="flex-1 px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9 overflow-y-auto">
           <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 pb-12">
             {authorized ? children : (

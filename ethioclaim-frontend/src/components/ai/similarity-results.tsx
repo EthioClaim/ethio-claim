@@ -78,7 +78,7 @@ export function SimilarityResults({ matches }: { matches: SimilarityMatch[] }) {
         </div>
       ) : (
         <div className="divide-y divide-[var(--border)]">
-          {matches.map((m) => {
+          {matches.map((m, idx) => {
             const conf = MATCH_TYPE_CONFIG[m.matchType] || {
               label: m.matchType,
               badge: "bg-white/10 text-white border border-white/20",
@@ -95,7 +95,7 @@ export function SimilarityResults({ matches }: { matches: SimilarityMatch[] }) {
 
             return (
               <div
-                key={m.id}
+                key={m.id || `match-${idx}-${m.matchedEvidenceId || m.matchedClaimId || idx}`}
                 className="px-5 py-4 hover:bg-white/[0.03] transition-colors flex flex-col gap-2"
               >
                 <div className="flex items-center justify-between gap-3 flex-wrap">

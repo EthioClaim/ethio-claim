@@ -16,7 +16,11 @@ const ROUTE_LABELS: Record<string, string> = {
   "/admin/operations": "Evidence Analysis Telemetry & Jobs",
 };
 
-export default function Topbar() {
+interface TopbarProps {
+  onToggleMobileNav?: () => void;
+}
+
+export default function Topbar({ onToggleMobileNav }: TopbarProps = {}) {
   const pathname = usePathname();
   const [apiStatus, setApiStatus] = useState<"ok" | "error" | "checking">("checking");
   const [mockActive, setMockActive] = useState<boolean>(false);
@@ -65,6 +69,20 @@ export default function Topbar() {
 
   return (
     <header className="topbar apple-chrome">
+      {/* Mobile Menu Toggle */}
+      {onToggleMobileNav && (
+        <button
+          type="button"
+          onClick={onToggleMobileNav}
+          aria-label="Open navigation drawer"
+          className="lg:hidden p-2 -ml-2 rounded-xl text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.08] active:scale-95 transition-all flex items-center justify-center"
+        >
+          <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
       {/* Title */}
       <div className="flex-1 min-w-0">
         <h1 className="text-[17px] font-bold text-[var(--text-primary)] truncate tracking-[-0.025em]">

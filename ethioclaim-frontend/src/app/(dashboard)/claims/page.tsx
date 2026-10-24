@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { Suspense, useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { fetchClaims } from "@/lib/api";
+import { useSearchParams } from "next/navigation";
+import { fetchClaims, fetchCurrentUser } from "@/lib/api";
 import { ClaimStatusBadge } from "@/components/claims/claim-status-badge";
 import { formatDate } from "@/lib/utils";
-import type { Claim, ClaimStatus } from "@/types";
+import type { Claim, ClaimStatus, CurrentUser } from "@/types";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "", label: "All Workflow Statuses" },
@@ -23,7 +24,13 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "CLOSED", label: "Closed" },
 ];
 
-export default function ClaimsListPage() {
+function ClaimsListContent() {
+  const searchParams = useSearchParams();
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [showUploadAlert, setShowUploadAlert] = useState(
+    searchParams.get("uploaded") === "true"
+  );
+
   const [claims, setClaims] = useState<Claim[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,6 +45,33 @@ export default function ClaimsListPage() {
   const [pageSize, setPageSize] = useState(10);
   const [total, setTotal] = useState(0);
 
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("ethioclaim_user");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          setCurrentUser(parsed);
+          if (parsed.role === "EXAMINER") {
+            setAssignedToMe(true);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    fetchCurrentUser()
+      .then((u) => {
+        setCurrentUser(u);
+        if (u.role === "EXAMINER") {
+          setAssignedToMe(true);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const isExaminer = currentUser?.role === "EXAMINER";
+
   const loadClaims = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -49,7 +83,7 @@ export default function ClaimsListPage() {
         q: q.trim() || undefined,
         from: from || undefined,
         to: to || undefined,
-        assignedToMe: assignedToMe ? true : undefined,
+        assignedToMe: isExaminer || assignedToMe ? true : undefined,
       });
       setClaims(res.items || []);
       setTotal(res.total || res.items?.length || 0);
@@ -58,7 +92,7 @@ export default function ClaimsListPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, selectedStatus, q, from, to, assignedToMe]);
+  }, [page, pageSize, selectedStatus, q, from, to, assignedToMe, isExaminer]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -74,20 +108,41 @@ export default function ClaimsListPage() {
     setSelectedStatus("");
     setFrom("");
     setTo("");
-    setAssignedToMe(false);
+    setAssignedToMe(isExaminer);
     setPage(1);
   }
 
   return (
     <div className="flex flex-col gap-6">
+      {/* Upload Success Alert (Section 2) */}
+      {showUploadAlert && (
+        <div className="p-4 rounded-xl bg-[#0A84FF]/10 border border-[#0A84FF]/30 text-xs text-[#64D2FF] flex items-center justify-between shadow-lg backdrop-blur-md">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#0A84FF] animate-pulse flex-shrink-0" />
+            <span className="font-semibold text-white">Evidence submitted successfully.</span>
+            <span>AI analysis is processing in the background.</span>
+          </div>
+          <button
+            onClick={() => setShowUploadAlert(false)}
+            className="text-white/60 hover:text-white text-xs underline font-medium ml-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Page Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
-            Insurance Claims Management
+            {isExaminer ? "Examiner Claim Queue" : "Insurance Claims Management"}
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            {loading ? "Refreshing claim records…" : `${total} registered motor claim records`}
+            {loading
+              ? "Refreshing claim records…"
+              : isExaminer
+              ? `${total} claims assigned for examiner adjudication`
+              : `${total} registered motor claim records`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -97,16 +152,18 @@ export default function ClaimsListPage() {
           >
             Verify Policy
           </Link>
-          <Link
-            href="/claims/new"
-            className="btn btn-primary text-xs py-2 px-4 shadow-sm flex items-center gap-2"
-            id="claims-new-btn"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span className="font-semibold">New Claim Intake</span>
-          </Link>
+          {!isExaminer && (
+            <Link
+              href="/claims/new"
+              className="btn btn-primary text-xs py-2 px-4 shadow-sm flex items-center gap-2"
+              id="claims-new-btn"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="font-semibold">New Claim Intake</span>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -247,11 +304,15 @@ export default function ClaimsListPage() {
             <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
               {q || selectedStatus || from || to
                 ? "No claims match your filter criteria. Try clearing search or status filters."
+                : isExaminer
+                ? "No motor insurance claims currently assigned to your queue."
                 : "No motor insurance claims currently registered. Start an intake to begin."}
             </p>
-            <Link href="/claims/new" className="btn btn-primary text-xs inline-flex mt-2">
-              Start New Claim Intake
-            </Link>
+            {!isExaminer && (
+              <Link href="/claims/new" className="btn btn-primary text-xs inline-flex mt-2">
+                Start New Claim Intake
+              </Link>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -310,7 +371,34 @@ export default function ClaimsListPage() {
                         {formatDate(claim.incidentDate || claim.createdAt)}
                       </td>
                       <td className="px-5 py-4">
-                        <ClaimStatusBadge status={claim.status as ClaimStatus} />
+                        <div className="flex flex-col items-start gap-1">
+                          <ClaimStatusBadge status={claim.status as ClaimStatus} />
+                          {/* AI Screening & Review Flags */}
+                          {claim.status === "PROCESSING" && (
+                            <span className="badge text-[9px] bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 animate-pulse">
+                              AI Processing
+                            </span>
+                          )}
+                          {(claim.status === "READY_FOR_REVIEW" ||
+                            claim.aiRiskAssessment?.label === "POTENTIAL_FRAUD" ||
+                            (claim.evidence as any[])?.some(
+                              (e) => e.matches?.length > 0 || e.analysis?.riskAssessment?.label === "POTENTIAL_FRAUD"
+                            )) && (
+                            <span className="badge text-[9px] bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
+                              ⚠️ Fraud Review
+                            </span>
+                          )}
+                          {((claim as any).noDamageDetected ||
+                            (claim.evidence as any[])?.some(
+                              (e) =>
+                                (e.analysis as any)?.detections?.length === 0 &&
+                                (e.analysis as any)?.status === "COMPLETED"
+                            )) && (
+                            <span className="badge text-[9px] bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40">
+                              🔍 No Damage Detected
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-5 py-4 text-right">
                         <Link
@@ -367,5 +455,21 @@ export default function ClaimsListPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function ClaimsListPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6 animate-pulse">
+          <div className="skeleton h-8 w-64 rounded-lg" />
+          <div className="skeleton h-28 w-full rounded-2xl" />
+          <div className="skeleton h-80 w-full rounded-2xl" />
+        </div>
+      }
+    >
+      <ClaimsListContent />
+    </Suspense>
   );
 }

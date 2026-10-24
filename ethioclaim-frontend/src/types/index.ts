@@ -210,7 +210,9 @@ export interface Claim {
 }
 
 export interface RequestEvidencePayload {
-  item: string;
+  message?: string;
+  requestedItems?: string[];
+  item?: string;
   notes?: string;
   deadline?: string;
 }
@@ -237,6 +239,10 @@ export interface Evidence {
   viewType?: string;
   analysis?: DamageAnalysis | null;
   riskAssessment?: any;
+  hasMatches?: boolean;
+  matches?: any[];
+  noDamageDetected?: boolean;
+  claim?: Partial<Claim>;
 }
 
 export interface DamageDetection {

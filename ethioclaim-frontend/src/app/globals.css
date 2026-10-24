@@ -56,6 +56,13 @@
   --touch-duration:    100ms;
 
   --sidebar-width:     264px;
+  --sidebar-offset:    0px;
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --sidebar-offset: var(--sidebar-width);
+  }
 }
 
 /* ── Reset & Optical Typography Foundations (Rule 15) ───────────── */
@@ -330,6 +337,15 @@ h4, h5, h6, .heading-sub {
 .input::placeholder {
   color: var(--text-muted);
 }
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: dark;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 80px;
+}
 
 .label {
   display: block;
@@ -430,11 +446,22 @@ h4, h5, h6, .heading-sub {
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border-right: 1px solid var(--border);
-  z-index: 40;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.04), 4px 0 24px rgba(0, 0, 0, 0.28);
+  transition: transform 0.35s var(--spring-crit);
+}
+
+@media (max-width: 1023px) {
+  .sidebar:not(.mobile-open) {
+    transform: translateX(-100%);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.6), 8px 0 32px rgba(0, 0, 0, 0.5);
+  }
 }
 
 .sidebar-link {
@@ -513,6 +540,8 @@ h4, h5, h6, .heading-sub {
   gap: 8px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .tab-btn {
   padding: 10px 18px;
@@ -525,6 +554,7 @@ h4, h5, h6, .heading-sub {
   border-bottom: 2px solid transparent;
   transition: all 0.25s var(--spring-crit);
   border-radius: 6px 6px 0 0;
+  white-space: nowrap;
 }
 .tab-btn:hover {
   color: var(--text-primary);
@@ -610,6 +640,34 @@ h4, h5, h6, .heading-sub {
   background-clip: text;
 }
 
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s var(--spring-crit) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s var(--spring-crit) forwards;
+}
+
 /* ── Reduced Motion Accessibility (Rule 14) ──────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -626,7 +684,10 @@ h4, h5, h6, .heading-sub {
   .tab-btn:active {
     transform: none !important;
   }
-  .modal {
+  .modal,
+  .animate-fade-in-up,
+  .animate-fade-in {
     animation: none !important;
+    transform: none !important;
   }
 }
