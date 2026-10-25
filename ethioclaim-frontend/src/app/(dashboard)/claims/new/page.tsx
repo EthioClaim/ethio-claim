@@ -61,25 +61,76 @@ function NewClaimForm() {
     }
   }, [searchParams]);
 
-  async function handleVerifyPolicy(num?: string) {
+  async function handleVerifyPolicy(num?: string): Promise<PolicyVerificationResult> {
     const val = (num || policyNumber).trim();
-    if (!val) return;
+    if (!val) {
+      const fallback: PolicyVerificationResult = { found: false, status: "NOT_FOUND" };
+      setPolicyResult(fallback);
+      return fallback;
+    }
     setPolicyCheckLoading(true);
     setError("");
     try {
       const res = await verifyPolicy(val);
       setPolicyResult(res);
+      if (res.found && res.policy) {
+        if (res.policy.holderName && !claimant.fullName) {
+          setClaimant((prev) => ({ ...prev, fullName: res.policy?.holderName || prev.fullName }));
+        }
+        if (res.policy.vehicleMake || res.policy.vehicleModel || res.policy.vehicleRegistration) {
+          setVehicle((prev) => ({
+            ...prev,
+            make: res.policy?.vehicleMake || prev.make,
+            model: res.policy?.vehicleModel || prev.model,
+            plate: res.policy?.vehicleRegistration || prev.plate,
+          }));
+        }
+      }
+      return res;
     } catch {
-      setPolicyResult({ found: false, status: "NOT_FOUND" });
+      const fallback: PolicyVerificationResult = { found: false, status: "NOT_FOUND" };
+      setPolicyResult(fallback);
+      return fallback;
     } finally {
       setPolicyCheckLoading(false);
     }
+  }
+
+  async function handleProceedFromPolicy() {
+    const val = policyNumber.trim();
+    if (!val) {
+      setError("Policy Number is required");
+      return;
+    }
+
+    let verification = policyResult;
+    const normVal = val.replace(/[-\s]/g, "").toUpperCase();
+    const verifiedNorm = verification?.policyNumber
+      ? verification.policyNumber.replace(/[-\s]/g, "").toUpperCase()
+      : null;
+
+    if (!verification || verifiedNorm !== normVal) {
+      verification = await handleVerifyPolicy(val);
+    }
+
+    if (!verification || !verification.found) {
+      setError("Policy not registered. Please provide a valid, registered policy number to proceed.");
+      return;
+    }
+
+    setError("");
+    setStep(2);
   }
 
   async function handleSubmit() {
     setError("");
     if (!policyNumber.trim()) {
       setError("Policy Number is required");
+      setStep(1);
+      return;
+    }
+    if (!policyResult?.found) {
+      setError("Policy not registered. Please provide a valid, registered policy number to proceed.");
       setStep(1);
       return;
     }
@@ -282,7 +333,7 @@ function NewClaimForm() {
               {/* Sample Quick Chips */}
               <div className="flex items-center gap-1.5 flex-wrap pt-1">
                 <span className="text-[11px] text-[var(--text-muted)]">Samples:</span>
-                {["POL-2026-001", "POL-2025-88421", "AWASH-POL-902"].map((p) => (
+                {["MTR-000001", "MTR-000002", "MTR-000123", "POL-2026-001"].map((p) => (
                   <button
                     key={p}
                     type="button"
@@ -301,7 +352,7 @@ function NewClaimForm() {
             {policyResult && (
               <div className={`p-4 rounded-2xl border text-xs animate-fade-in ${policyResult.found
                   ? "bg-[#30D158]/[0.08] border-[#30D158]/30 text-white"
-                  : "bg-[#FF9F0A]/[0.08] border-[#FF9F0A]/30 text-[#FFD60A]"
+                  : "bg-[#FF453A]/[0.08] border-[#FF453A]/30 text-[#FF6961]"
                 }`}>
                 {policyResult.found ? (
                   <div className="flex items-center gap-2.5">
@@ -311,8 +362,10 @@ function NewClaimForm() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2.5">
-                    <span className="w-2 h-2 rounded-full bg-[#FF9F0A]" />
-                    <span>Policy not verified in database. You may still proceed with intake under POLICY_UNVERIFIED status.</span>
+                    <span className="w-2 h-2 rounded-full bg-[#FF453A]" />
+                    <span className="font-medium">
+                      Policy not registered. Please provide a valid, registered policy number to proceed.
+                    </span>
                   </div>
                 )}
               </div>
@@ -321,17 +374,11 @@ function NewClaimForm() {
             <div className="flex justify-end pt-3">
               <button
                 type="button"
-                onClick={() => {
-                  if (!policyNumber.trim()) {
-                    setError("Please enter a policy number");
-                    return;
-                  }
-                  setError("");
-                  setStep(2);
-                }}
+                onClick={handleProceedFromPolicy}
+                disabled={policyCheckLoading}
                 className="btn btn-primary text-xs py-2.5 px-6 font-semibold"
               >
-                Continue to Claimant Information →
+                {policyCheckLoading ? "Verifying Policy…" : "Continue to Claimant Information →"}
               </button>
             </div>
           </div>

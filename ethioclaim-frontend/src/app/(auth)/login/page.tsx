@@ -195,7 +195,8 @@ export default function LoginPage() {
                   id="login-username"
                   type="text"
                   required
-                  className="input text-sm h-11 pl-10"
+                  className="input text-sm h-11 pl-11"
+                  style={{ paddingLeft: "2.75rem" }}
                   placeholder="name@ethioclaim.et or username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
@@ -219,7 +220,8 @@ export default function LoginPage() {
                   id="login-password"
                   type={showPassword ? "text" : "password"}
                   required
-                  className="input text-sm h-11 pl-10 pr-10"
+                  className="input text-sm h-11 pl-11 pr-11"
+                  style={{ paddingLeft: "2.75rem", paddingRight: "2.75rem" }}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

@@ -92,16 +92,16 @@ class RiskAssessorService:
                 if vm.claimId and vm.claimId != claim_id and vm.evidenceId != evidence_id
             ]
 
-            # Truly high near-duplicates (e.g. >= 0.95)
+            # Enforce minimum threshold of 85% (0.85) for vector embedding visual matches
             high_similarity_matches = [
                 vm for vm in cross_claim_vm
                 if vm.similarity >= settings.VECTOR_SIMILARITY_FRAUD_THRESHOLD
             ]
 
-            # Suspicious range (0.88 - 0.95)
-            suspicious_similarity_matches = [
+            # Below 0.85: do NOT trigger a fraud flag based on vector similarity
+            below_threshold_matches = [
                 vm for vm in cross_claim_vm
-                if settings.VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD <= vm.similarity < settings.VECTOR_SIMILARITY_FRAUD_THRESHOLD
+                if vm.similarity < settings.VECTOR_SIMILARITY_FRAUD_THRESHOLD
             ]
 
             if high_similarity_matches:
@@ -120,25 +120,13 @@ class RiskAssessorService:
                 reasons.append(
                     f"High visual vector similarity detected against historical claim evidence ({vm_summary})."
                 )
-            elif suspicious_similarity_matches and (hash_matches and (hash_matches.exactMatches or hash_matches.perceptualMatches)):
-                is_fraud_flag = True
-                top_sim = max(vm.similarity for vm in suspicious_similarity_matches)
-                highest_score = max(highest_score, round(top_sim, 4))
-                for vm in suspicious_similarity_matches:
-                    if vm.claimId and vm.claimId not in matched_claim_ids:
-                        matched_claim_ids.append(vm.claimId)
-                    if vm.evidenceId and vm.evidenceId not in matched_evidence_ids:
-                        matched_evidence_ids.append(vm.evidenceId)
-
-                reasons.append(
-                    "Moderate visual vector similarity corroborates perceptual hash duplicate flags."
-                )
-            elif suspicious_similarity_matches:
-                # Moderate similarity alone does NOT establish fraud; record as observation for examiner
-                top_sim = max(vm.similarity for vm in suspicious_similarity_matches)
+            elif below_threshold_matches:
+                # If vector embedding similarity is below 0.85, do NOT trigger a fraud flag based on vector similarity.
+                # In that scenario, rely strictly on other deterministic signals (exact SHA-256 hash match,
+                # perceptual hash / pHash distance, or damage detection results) to determine the evidence classification.
+                top_sim = max(vm.similarity for vm in below_threshold_matches)
                 highest_score = max(highest_score, round(top_sim * 0.4, 4))
-                # Add to match references for examiner review, but do not mark fraud
-                for vm in suspicious_similarity_matches[:2]:
+                for vm in below_threshold_matches[:2]:
                     if vm.claimId and vm.claimId not in matched_claim_ids:
                         matched_claim_ids.append(vm.claimId)
                     if vm.evidenceId and vm.evidenceId not in matched_evidence_ids:

@@ -334,8 +334,30 @@ function EvidenceWorkspaceContent() {
                         src={fileUrl}
                         alt={ev.originalFilename || ev.filename || "Evidence"}
                         className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLElement;
+                        onError={async (e) => {
+                          const target = e.currentTarget as HTMLImageElement;
+                          if (!target.dataset.triedBlob) {
+                            target.dataset.triedBlob = "true";
+                            try {
+                              const token = typeof window !== "undefined" ? localStorage.getItem("ethioclaim_token") : null;
+                              let url = ev.url || ev.thumbnailUrl || `/api/v1/evidence/${ev.id}/file`;
+                              if (url.startsWith("/")) {
+                                const baseHost = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3006/api/v1").replace(/\/api\/v1$/, "");
+                                url = `${baseHost}${url}`;
+                              }
+                              const res = await fetch(url, {
+                                headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              });
+                              if (res.ok) {
+                                const blob = await res.blob();
+                                target.src = URL.createObjectURL(blob);
+                                target.style.display = "block";
+                                return;
+                              }
+                            } catch {
+                              // Proceed to fallback
+                            }
+                          }
                           target.style.display = "none";
                           const fallback = target.parentElement?.querySelector(".img-fallback");
                           if (fallback) (fallback as HTMLElement).style.display = "flex";
@@ -474,8 +496,30 @@ function EvidenceWorkspaceContent() {
                       src={getAuthenticatedEvidenceUrl(selectedItem.evidence)}
                       alt={selectedItem.evidence.originalFilename || selectedItem.evidence.filename || "Selected Evidence"}
                       className="max-h-[460px] w-auto max-w-full rounded-xl object-contain shadow-2xl"
-                      onError={(e) => {
-                        const target = e.target as HTMLElement;
+                      onError={async (e) => {
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (!target.dataset.triedBlob) {
+                          target.dataset.triedBlob = "true";
+                          try {
+                            const token = typeof window !== "undefined" ? localStorage.getItem("ethioclaim_token") : null;
+                            let url = selectedItem.evidence.url || selectedItem.evidence.thumbnailUrl || `/api/v1/evidence/${selectedItem.evidence.id}/file`;
+                            if (url.startsWith("/")) {
+                              const baseHost = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3006/api/v1").replace(/\/api\/v1$/, "");
+                              url = `${baseHost}${url}`;
+                            }
+                            const res = await fetch(url, {
+                              headers: token ? { Authorization: `Bearer ${token}` } : {},
+                            });
+                            if (res.ok) {
+                              const blob = await res.blob();
+                              target.src = URL.createObjectURL(blob);
+                              target.style.display = "block";
+                              return;
+                            }
+                          } catch {
+                            // Proceed to fallback
+                          }
+                        }
                         target.style.display = "none";
                         const fallback = target.parentElement?.querySelector(".main-img-fallback");
                         if (fallback) (fallback as HTMLElement).style.display = "flex";

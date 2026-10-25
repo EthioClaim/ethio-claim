@@ -3,6 +3,7 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
+  BadRequestException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import {
@@ -342,28 +343,30 @@ export class ClaimsService {
   }
 
   async create(dto: CreateClaimDto, userId: string) {
-    // Verify policy if policyNumber provided
-    let policyId: string | undefined;
-    let policyVerification = "PENDING";
-
-    if (dto.policyNumber) {
-      const normalized = dto.policyNumber.replace(/[-\s]/g, "").toUpperCase();
-      const policy = await this.prisma.policy.findFirst({
-        where: {
-          OR: [
-            { policyNumber: { equals: dto.policyNumber, mode: "insensitive" } },
-            { normalizedPolicyNumber: normalized },
-          ],
-        },
-      });
-      if (policy) {
-        policyId = policy.id;
-        policyVerification =
-          policy.status === "ACTIVE" ? "VERIFIED" : "POLICY_INACTIVE";
-      } else {
-        policyVerification = "NOT_FOUND";
-      }
+    // Strict Policy Registration Validation
+    if (!dto.policyNumber || !dto.policyNumber.trim()) {
+      throw new BadRequestException("Policy number is required");
     }
+
+    const normalized = dto.policyNumber.replace(/[-\s]/g, "").toUpperCase();
+    const policy = await this.prisma.policy.findFirst({
+      where: {
+        OR: [
+          { policyNumber: { equals: dto.policyNumber.trim(), mode: "insensitive" } },
+          { normalizedPolicyNumber: normalized },
+        ],
+      },
+    });
+
+    if (!policy) {
+      throw new BadRequestException(
+        "Policy not registered. Please provide a valid, registered policy number to proceed.",
+      );
+    }
+
+    const policyId = policy.id;
+    const policyVerification =
+      policy.status === "ACTIVE" ? "VERIFIED" : "POLICY_INACTIVE";
 
     const claimNumber = await this.generateClaimNumber();
 

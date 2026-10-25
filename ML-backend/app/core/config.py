@@ -35,7 +35,7 @@ class Settings(BaseSettings):
     # Thresholds for Screening & Risk Flags
     EXACT_HASH_SIMILARITY_THRESHOLD: float = 1.0
     PERCEPTUAL_HASH_DISTANCE_THRESHOLD: int = 8
-    VECTOR_SIMILARITY_FRAUD_THRESHOLD: float = 0.90
+    VECTOR_SIMILARITY_FRAUD_THRESHOLD: float = 0.85
     VECTOR_SIMILARITY_SUSPICIOUS_THRESHOLD: float = 0.85
     RULE_VERSION: str = "rules-v1"
 
