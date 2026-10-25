@@ -106,43 +106,40 @@ export default function Topbar({ onToggleMobileNav }: TopbarProps = {}) {
             background: mockActive
               ? "rgba(255, 159, 10, 0.12)"
               : apiStatus === "ok"
-              ? "rgba(48, 209, 88, 0.10)"
-              : "rgba(255, 69, 58, 0.10)",
-            border: `1px solid ${
-              mockActive
+                ? "rgba(48, 209, 88, 0.10)"
+                : "rgba(255, 69, 58, 0.10)",
+            border: `1px solid ${mockActive
                 ? "rgba(255, 159, 10, 0.35)"
                 : apiStatus === "ok"
-                ? "rgba(48, 209, 88, 0.28)"
-                : "rgba(255, 69, 58, 0.28)"
-            }`,
+                  ? "rgba(48, 209, 88, 0.28)"
+                  : "rgba(255, 69, 58, 0.28)"
+              }`,
             boxShadow: "0 2px 8px rgba(0,0,0,0.18)",
           }}
           title={
             mockActive
               ? "Backend is offline or unreachable. Operating in seamless mock fallback mode."
               : apiStatus === "ok"
-              ? "Connected to live NestJS backend (/api/v1)"
-              : "Backend unreachable"
+                ? "Connected to live NestJS backend (/api/v1)"
+                : "Backend unreachable"
           }
         >
           <span className="relative flex h-2 w-2">
             <span
-              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                mockActive
+              className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${mockActive
                   ? "bg-[#FF9F0A]"
                   : apiStatus === "ok"
-                  ? "bg-[#30D158]"
-                  : "bg-[#FF453A]"
-              }`}
+                    ? "bg-[#30D158]"
+                    : "bg-[#FF453A]"
+                }`}
             />
             <span
-              className={`relative inline-flex rounded-full h-2 w-2 ${
-                mockActive
+              className={`relative inline-flex rounded-full h-2 w-2 ${mockActive
                   ? "bg-[#FF9F0A]"
                   : apiStatus === "ok"
-                  ? "bg-[#30D158]"
-                  : "bg-[#FF453A]"
-              }`}
+                    ? "bg-[#30D158]"
+                    : "bg-[#FF453A]"
+                }`}
             />
           </span>
           <span
@@ -151,15 +148,15 @@ export default function Topbar({ onToggleMobileNav }: TopbarProps = {}) {
               color: mockActive
                 ? "#FF9F0A"
                 : apiStatus === "ok"
-                ? "#30D158"
-                : "#FF6961",
+                  ? "#30D158"
+                  : "#FF6961",
             }}
           >
             {mockActive
               ? "Mock Fallback Active"
               : apiStatus === "ok"
-              ? "Live API Connected"
-              : "API Disconnected"}
+                ? "Live API Connected"
+                : "API Disconnected"}
           </span>
         </div>
 

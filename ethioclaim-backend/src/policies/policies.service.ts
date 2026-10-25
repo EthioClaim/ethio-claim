@@ -1,27 +1,27 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { Injectable, NotFoundException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
 
 function normalizePolicyNumber(pn: string): string {
-  return pn.replace(/[-\s]/g, '').toUpperCase();
+  return pn.replace(/[-\s]/g, "").toUpperCase();
 }
 
 @Injectable()
 export class PoliciesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async verify(policyNumber: string) {
     const normalized = normalizePolicyNumber(policyNumber);
     const policy = await this.prisma.policy.findFirst({
       where: {
         OR: [
-          { policyNumber: { equals: policyNumber, mode: 'insensitive' } },
+          { policyNumber: { equals: policyNumber, mode: "insensitive" } },
           { normalizedPolicyNumber: normalized },
         ],
       },
     });
 
     if (!policy) {
-      return { found: false, status: 'NOT_FOUND', policy: null };
+      return { found: false, status: "NOT_FOUND", policy: null };
     }
 
     return {
@@ -52,7 +52,7 @@ export class PoliciesService {
 
   async findById(id: string) {
     const policy = await this.prisma.policy.findUnique({ where: { id } });
-    if (!policy) throw new NotFoundException('Policy not found');
+    if (!policy) throw new NotFoundException("Policy not found");
     return {
       id: policy.id,
       policyNumber: policy.policyNumber,

@@ -3,8 +3,8 @@ import {
   NotFoundException,
   ConflictException,
   ForbiddenException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
 import {
   CreateClaimDto,
   UpdateClaimDto,
@@ -13,36 +13,38 @@ import {
   CloseClaimDto,
   SubmitClaimDto,
   RequestEvidenceDto,
-} from './dto/claims.dto';
+} from "./dto/claims.dto";
 
 // Valid status transitions
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
-  DRAFT: ['SUBMITTED'],
-  SUBMITTED: ['PROCESSING', 'POLICY_UNVERIFIED', 'UNDER_REVIEW'],
-  POLICY_UNVERIFIED: ['SUBMITTED'],
-  PROCESSING: ['READY_FOR_REVIEW', 'NEED_MORE_EVIDENCE'],
-  READY_FOR_REVIEW: ['UNDER_REVIEW'],
-  UNDER_REVIEW: ['ASSESSED', 'NEED_MORE_EVIDENCE', 'READY_FOR_REVIEW'],
-  NEED_MORE_EVIDENCE: ['UNDER_REVIEW', 'READY_FOR_REVIEW'],
-  ASSESSED: ['APPROVED', 'REJECTED', 'UNDER_REVIEW'],
-  APPROVED: ['CLOSED'],
-  REJECTED: ['CLOSED'],
+  DRAFT: ["SUBMITTED"],
+  SUBMITTED: ["PROCESSING", "POLICY_UNVERIFIED", "UNDER_REVIEW"],
+  POLICY_UNVERIFIED: ["SUBMITTED"],
+  PROCESSING: ["READY_FOR_REVIEW", "NEED_MORE_EVIDENCE"],
+  READY_FOR_REVIEW: ["UNDER_REVIEW"],
+  UNDER_REVIEW: ["ASSESSED", "NEED_MORE_EVIDENCE", "READY_FOR_REVIEW"],
+  NEED_MORE_EVIDENCE: ["UNDER_REVIEW", "READY_FOR_REVIEW"],
+  ASSESSED: ["APPROVED", "REJECTED", "UNDER_REVIEW"],
+  APPROVED: ["CLOSED"],
+  REJECTED: ["CLOSED"],
   CLOSED: [],
 };
 
 function formatClaim(c: any) {
-  const assignEvent = c.auditEvents?.find((e: any) => e.action === 'EXAMINER_ASSIGNED');
+  const assignEvent = c.auditEvents?.find(
+    (e: any) => e.action === "EXAMINER_ASSIGNED",
+  );
   const assignedExaminer = assignEvent?.details
     ? {
-        id: (assignEvent.details as any).examinerId,
-        name: (assignEvent.details as any).examinerName,
-      }
+      id: (assignEvent.details as any).examinerId,
+      name: (assignEvent.details as any).examinerName,
+    }
     : c.assessment?.examiner
-    ? {
+      ? {
         id: c.assessment.examiner.id,
         name: c.assessment.examiner.name,
       }
-    : null;
+      : null;
 
   // Extract AI detections and risk assessment if evidence list is present
   let aiSuggestedSeverity: string | null = null;
@@ -53,7 +55,9 @@ function formatClaim(c: any) {
   let hasPending = false;
   let hasFailed = false;
 
-  const fraudEvent = c.auditEvents?.find((e: any) => e.action === 'AI_POTENTIAL_FRAUD_FLAGGED');
+  const fraudEvent = c.auditEvents?.find(
+    (e: any) => e.action === "AI_POTENTIAL_FRAUD_FLAGGED",
+  );
   if (fraudEvent) {
     isFraudFlag = true;
     if (fraudEvent.details?.riskAssessment?.reasons) {
@@ -65,10 +69,13 @@ function formatClaim(c: any) {
 
   if (Array.isArray(c.evidence)) {
     for (const ev of c.evidence) {
-      if (ev.analysisStatus === 'PENDING' || ev.analysisStatus === 'PROCESSING') {
+      if (
+        ev.analysisStatus === "PENDING" ||
+        ev.analysisStatus === "PROCESSING"
+      ) {
         hasPending = true;
       }
-      if (ev.analysisStatus === 'FAILED') {
+      if (ev.analysisStatus === "FAILED") {
         hasFailed = true;
       }
 
@@ -77,11 +84,11 @@ function formatClaim(c: any) {
         const damageDetections = Array.isArray(det)
           ? det
           : Array.isArray(det.damageDetections)
-          ? det.damageDetections
-          : [];
+            ? det.damageDetections
+            : [];
         allDetections.push(...damageDetections);
 
-        if (det.riskAssessment?.label === 'POTENTIAL_FRAUD') {
+        if (det.riskAssessment?.label === "POTENTIAL_FRAUD") {
           isFraudFlag = true;
           if (Array.isArray(det.riskAssessment.reasons)) {
             fraudReasons.push(...det.riskAssessment.reasons);
@@ -92,13 +99,15 @@ function formatClaim(c: any) {
   }
 
   // Derive aiSuggestedSeverity from detections (SEVERE > MODERATE > MINOR)
-  const severityLevels = allDetections.map((d: any) => (d.severity || '').toUpperCase());
-  if (severityLevels.includes('SEVERE')) {
-    aiSuggestedSeverity = 'SEVERE';
-  } else if (severityLevels.includes('MODERATE')) {
-    aiSuggestedSeverity = 'MODERATE';
-  } else if (severityLevels.includes('MINOR')) {
-    aiSuggestedSeverity = 'MINOR';
+  const severityLevels = allDetections.map((d: any) =>
+    (d.severity || "").toUpperCase(),
+  );
+  if (severityLevels.includes("SEVERE")) {
+    aiSuggestedSeverity = "SEVERE";
+  } else if (severityLevels.includes("MODERATE")) {
+    aiSuggestedSeverity = "MODERATE";
+  } else if (severityLevels.includes("MINOR")) {
+    aiSuggestedSeverity = "MINOR";
   }
 
   const matchedClaimIds: string[] = [];
@@ -110,7 +119,9 @@ function formatClaim(c: any) {
       matchedClaimIds.push(...(fraudEvent.details as any).matchedClaimIds);
     }
     if (Array.isArray((fraudEvent.details as any).matchedEvidenceIds)) {
-      matchedEvidenceIds.push(...(fraudEvent.details as any).matchedEvidenceIds);
+      matchedEvidenceIds.push(
+        ...(fraudEvent.details as any).matchedEvidenceIds,
+      );
     }
     if ((fraudEvent.details as any).riskAssessment?.score != null) {
       riskScore = (fraudEvent.details as any).riskAssessment.score;
@@ -135,45 +146,51 @@ function formatClaim(c: any) {
   // Derive aiRiskAssessment
   if (isFraudFlag) {
     aiRiskAssessment = {
-      label: 'POTENTIAL_FRAUD',
+      label: "POTENTIAL_FRAUD",
       requiresExaminerReview: true,
       score: riskScore ?? 0.95,
       matchedClaimIds: Array.from(new Set(matchedClaimIds)),
       matchedEvidenceIds: Array.from(new Set(matchedEvidenceIds)),
       reasons: Array.from(
-        new Set(fraudReasons.length ? fraudReasons : ['Potential duplicate or visual anomaly detected']),
+        new Set(
+          fraudReasons.length
+            ? fraudReasons
+            : ["Potential duplicate or visual anomaly detected"],
+        ),
       ),
     };
   } else if (hasPending) {
     aiRiskAssessment = {
-      label: 'PENDING',
+      label: "PENDING",
       requiresExaminerReview: false,
       score: 0.1,
       matchedClaimIds: [],
       matchedEvidenceIds: [],
-      reasons: ['AI damage analysis and duplicate verification in progress'],
+      reasons: ["AI damage analysis and duplicate verification in progress"],
     };
   } else if (hasFailed) {
     aiRiskAssessment = {
-      label: 'FAILED',
+      label: "FAILED",
       requiresExaminerReview: true,
       score: 0.5,
       matchedClaimIds: [],
       matchedEvidenceIds: [],
-      reasons: ['One or more photos could not be processed by the vision model'],
+      reasons: [
+        "One or more photos could not be processed by the vision model",
+      ],
     };
   } else if (c.evidence && c.evidence.length > 0) {
     aiRiskAssessment = {
-      label: 'NO_FRAUD_INDICATORS_FOUND',
+      label: "NO_FRAUD_INDICATORS_FOUND",
       requiresExaminerReview: false,
       score: 0.05,
       matchedClaimIds: [],
       matchedEvidenceIds: [],
-      reasons: ['No duplicate hashes or cross-claim anomalies identified'],
+      reasons: ["No duplicate hashes or cross-claim anomalies identified"],
     };
   }
 
-  const claimantName = c.claimantFullName || 'Unknown Claimant';
+  const claimantName = c.claimantFullName || "Unknown Claimant";
 
   return {
     id: c.id,
@@ -183,7 +200,7 @@ function formatClaim(c: any) {
     claimant: {
       name: claimantName,
       fullName: claimantName,
-      phone: c.claimantPhone || '—',
+      phone: c.claimantPhone || "—",
       email: c.claimantEmail,
     },
     claimantName,
@@ -207,11 +224,11 @@ function formatClaim(c: any) {
     description: c.incidentDescription,
     policy: c.policy
       ? {
-          id: c.policy.id,
-          policyNumber: c.policy.policyNumber,
-          status: c.policy.status,
-          insurer: c.policy.insurer,
-        }
+        id: c.policy.id,
+        policyNumber: c.policy.policyNumber,
+        status: c.policy.status,
+        insurer: c.policy.insurer,
+      }
       : null,
     policyNumber: c.policy?.policyNumber,
     evidenceCount: c._count?.evidence ?? (c.evidence ? c.evidence.length : 0),
@@ -220,84 +237,92 @@ function formatClaim(c: any) {
     aiRiskAssessment,
     evidence: c.evidence
       ? c.evidence.map((ev: any) => ({
-          id: ev.id,
-          claimId: ev.claimId,
-          originalName: ev.originalName,
-          filename: ev.originalName,
-          originalFilename: ev.originalName,
-          mimeType: ev.mimeType,
-          sizeBytes: Number(ev.sizeBytes),
-          storageKey: ev.storageKey,
-          publicUrl: `/api/v1/evidence/${ev.id}/file`,
-          url: `/api/v1/evidence/${ev.id}/file`,
-          thumbnailUrl: `/api/v1/evidence/${ev.id}/file`,
-          sha256: ev.sha256,
-          phash: ev.phash,
-          caption: ev.caption,
-          evidenceType: ev.evidenceType,
-          analysisStatus: ev.analysisStatus,
-          uploadedById: ev.uploadedById,
-          uploadedAt: ev.createdAt,
-          createdAt: ev.createdAt,
-          analysis: ev.analysis
-            ? {
-                id: ev.analysis.id,
-                status: ev.analysis.status,
-                modelName: ev.analysis.modelName,
-                modelVersion: ev.analysis.modelVersion,
-                detections:
-                  (ev.analysis.detections as any)?.damageDetections ||
-                  (Array.isArray(ev.analysis.detections) ? ev.analysis.detections : []),
-                riskAssessment: (ev.analysis.detections as any)?.riskAssessment || null,
-                warnings: (ev.analysis.detections as any)?.warnings || [],
-                inferenceMs: ev.analysis.inferenceMs,
-                errorCode: ev.analysis.errorCode,
-                errorMessage: ev.analysis.errorMessage,
-              }
-            : null,
-          matches: ev.matchedBy
-            ? ev.matchedBy.map((m: any) => ({
-                id: m.id,
-                matchedEvidenceId: m.matchedEvidenceId,
-                matchType: m.matchType,
-                score: m.score ? Number(m.score) : undefined,
-                distance: m.distance,
-                matchedClaimId: m.matchedEvidence?.claimId,
-                matchedClaimNumber: m.matchedEvidence?.claim?.claimNumber,
-              }))
-            : [],
-        }))
+        id: ev.id,
+        claimId: ev.claimId,
+        originalName: ev.originalName,
+        filename: ev.originalName,
+        originalFilename: ev.originalName,
+        mimeType: ev.mimeType,
+        sizeBytes: Number(ev.sizeBytes),
+        storageKey: ev.storageKey,
+        publicUrl: `/api/v1/evidence/${ev.id}/file`,
+        url: `/api/v1/evidence/${ev.id}/file`,
+        thumbnailUrl: `/api/v1/evidence/${ev.id}/file`,
+        sha256: ev.sha256,
+        phash: ev.phash,
+        caption: ev.caption,
+        evidenceType: ev.evidenceType,
+        analysisStatus: ev.analysisStatus,
+        uploadedById: ev.uploadedById,
+        uploadedAt: ev.createdAt,
+        createdAt: ev.createdAt,
+        analysis: ev.analysis
+          ? {
+            id: ev.analysis.id,
+            status: ev.analysis.status,
+            modelName: ev.analysis.modelName,
+            modelVersion: ev.analysis.modelVersion,
+            detections:
+              (ev.analysis.detections as any)?.damageDetections ||
+              (Array.isArray(ev.analysis.detections)
+                ? ev.analysis.detections
+                : []),
+            riskAssessment:
+              (ev.analysis.detections as any)?.riskAssessment || null,
+            warnings: (ev.analysis.detections as any)?.warnings || [],
+            inferenceMs: ev.analysis.inferenceMs,
+            errorCode: ev.analysis.errorCode,
+            errorMessage: ev.analysis.errorMessage,
+          }
+          : null,
+        matches: ev.matchedBy
+          ? ev.matchedBy.map((m: any) => ({
+            id: m.id,
+            matchedEvidenceId: m.matchedEvidenceId,
+            matchType: m.matchType,
+            score: m.score ? Number(m.score) : undefined,
+            distance: m.distance,
+            matchedClaimId: m.matchedEvidence?.claimId,
+            matchedClaimNumber: m.matchedEvidence?.claim?.claimNumber,
+          }))
+          : [],
+      }))
       : undefined,
     assessment: c.assessment
       ? {
-          id: c.assessment.id,
-          severity: c.assessment.severity,
-          estimatedLossEtb: c.assessment.estimatedLossEtb?.toString(),
-          currency: c.assessment.currency,
-          notes: c.assessment.notes,
-          examinerId: c.assessment.examinerId,
-          examiner: c.assessment.examiner
-            ? {
-                id: c.assessment.examiner.id,
-                name: c.assessment.examiner.name,
-              }
-            : undefined,
-          createdAt: c.assessment.createdAt,
-        }
+        id: c.assessment.id,
+        severity: c.assessment.severity,
+        estimatedLossEtb: c.assessment.estimatedLossEtb?.toString(),
+        currency: c.assessment.currency,
+        notes: c.assessment.notes,
+        examinerId: c.assessment.examinerId,
+        examiner: c.assessment.examiner
+          ? {
+            id: c.assessment.examiner.id,
+            name: c.assessment.examiner.name,
+          }
+          : undefined,
+        createdAt: c.assessment.createdAt,
+      }
       : null,
     decisions: c.decisions,
     timeline: c.auditEvents
       ? c.auditEvents.map((a: any) => ({
-          id: a.id,
-          claimId: a.claimId,
-          action: a.action,
-          summary: a.summary,
-          details: a.details,
-          actor: a.actor
-            ? { id: a.actor.id, name: a.actor.name, role: a.actor.role, email: a.actor.email }
-            : a.actorId,
-          createdAt: a.createdAt,
-        }))
+        id: a.id,
+        claimId: a.claimId,
+        action: a.action,
+        summary: a.summary,
+        details: a.details,
+        actor: a.actor
+          ? {
+            id: a.actor.id,
+            name: a.actor.name,
+            role: a.actor.role,
+            email: a.actor.email,
+          }
+          : a.actorId,
+        createdAt: a.createdAt,
+      }))
       : undefined,
     createdById: c.createdById,
     createdAt: c.createdAt,
@@ -307,35 +332,36 @@ function formatClaim(c: any) {
 
 @Injectable()
 export class ClaimsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private async generateClaimNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const count = await this.prisma.claim.count();
-    const seq = String(count + 1).padStart(5, '0');
+    const seq = String(count + 1).padStart(5, "0");
     return `EC-${year}-${seq}`;
   }
 
   async create(dto: CreateClaimDto, userId: string) {
     // Verify policy if policyNumber provided
     let policyId: string | undefined;
-    let policyVerification = 'PENDING';
+    let policyVerification = "PENDING";
 
     if (dto.policyNumber) {
-      const normalized = dto.policyNumber.replace(/[-\s]/g, '').toUpperCase();
+      const normalized = dto.policyNumber.replace(/[-\s]/g, "").toUpperCase();
       const policy = await this.prisma.policy.findFirst({
         where: {
           OR: [
-            { policyNumber: { equals: dto.policyNumber, mode: 'insensitive' } },
+            { policyNumber: { equals: dto.policyNumber, mode: "insensitive" } },
             { normalizedPolicyNumber: normalized },
           ],
         },
       });
       if (policy) {
         policyId = policy.id;
-        policyVerification = policy.status === 'ACTIVE' ? 'VERIFIED' : 'POLICY_INACTIVE';
+        policyVerification =
+          policy.status === "ACTIVE" ? "VERIFIED" : "POLICY_INACTIVE";
       } else {
-        policyVerification = 'NOT_FOUND';
+        policyVerification = "NOT_FOUND";
       }
     }
 
@@ -344,23 +370,36 @@ export class ClaimsService {
     const claim = await this.prisma.claim.create({
       data: {
         claimNumber,
-        status: (dto as any).status || (policyVerification === 'VERIFIED' ? 'DRAFT' : 'POLICY_UNVERIFIED'),
+        status:
+          (dto as any).status ||
+          (policyVerification === "VERIFIED" ? "DRAFT" : "POLICY_UNVERIFIED"),
         policyVerification,
         policyId,
-        claimantFullName: dto.claimant?.fullName || (dto as any).claimantName || 'Unknown Claimant',
-        claimantPhone: dto.claimant?.phone || (dto as any).claimantPhone || '',
+        claimantFullName:
+          dto.claimant?.fullName ||
+          (dto as any).claimantName ||
+          "Unknown Claimant",
+        claimantPhone: dto.claimant?.phone || (dto as any).claimantPhone || "",
         claimantEmail: dto.claimant?.email || (dto as any).claimantEmail,
-        vehiclePlateNumber: dto.vehicle?.plateNumber || (dto as any).vehiclePlate || (dto as any).vehicleRegistration,
+        vehiclePlateNumber:
+          dto.vehicle?.plateNumber ||
+          (dto as any).vehiclePlate ||
+          (dto as any).vehicleRegistration,
         vehicleMake: dto.vehicle?.make || (dto as any).vehicleMake,
         vehicleModel: dto.vehicle?.model || (dto as any).vehicleModel,
         vehicleYear: dto.vehicle?.year || (dto as any).vehicleYear,
         vehicleVin: dto.vehicle?.vin || (dto as any).vehicleVin,
-        incidentOccurredAt: (dto.incident?.occurredAt || (dto as any).incidentDate)
-          ? new Date(dto.incident?.occurredAt || (dto as any).incidentDate)
-          : undefined,
+        incidentOccurredAt:
+          dto.incident?.occurredAt || (dto as any).incidentDate
+            ? new Date(dto.incident?.occurredAt || (dto as any).incidentDate)
+            : undefined,
         incidentLocation: dto.incident?.location || (dto as any).location,
-        incidentDescription: dto.incident?.description || (dto as any).description,
-        incidentType: (dto.incident?.incidentType as any) || (dto as any).incidentType || 'OTHER',
+        incidentDescription:
+          dto.incident?.description || (dto as any).description,
+        incidentType:
+          (dto.incident?.incidentType as any) ||
+          (dto as any).incidentType ||
+          "OTHER",
         createdById: userId,
       },
     });
@@ -369,7 +408,7 @@ export class ClaimsService {
       data: {
         claimId: claim.id,
         actorId: userId,
-        action: 'CLAIM_CREATED',
+        action: "CLAIM_CREATED",
         summary: `Claim ${claimNumber} created`,
       },
     });
@@ -383,14 +422,17 @@ export class ClaimsService {
     };
   }
 
-  async isClaimAssignedToExaminer(claimId: string, examinerId: string): Promise<boolean> {
+  async isClaimAssignedToExaminer(
+    claimId: string,
+    examinerId: string,
+  ): Promise<boolean> {
     // 1. Check latest EXAMINER_ASSIGNED audit event
     const latestAssign = await this.prisma.auditEvent.findFirst({
       where: {
         claimId,
-        action: 'EXAMINER_ASSIGNED',
+        action: "EXAMINER_ASSIGNED",
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
 
     if (latestAssign && latestAssign.details) {
@@ -433,9 +475,9 @@ export class ClaimsService {
     const where: any = {};
 
     // Scope results by role
-    if (userRole === 'INTAKE_USER') {
+    if (userRole === "INTAKE_USER") {
       where.createdById = userId;
-    } else if (userRole === 'EXAMINER') {
+    } else if (userRole === "EXAMINER") {
       // Find all claims assigned to this examiner
       // 1. Claims with assessment by this examiner
       const assessedClaims = await this.prisma.examinerAssessment.findMany({
@@ -446,8 +488,8 @@ export class ClaimsService {
 
       // 2. Claims with EXAMINER_ASSIGNED audit events
       const assignEvents = await this.prisma.auditEvent.findMany({
-        where: { action: 'EXAMINER_ASSIGNED' },
-        orderBy: { createdAt: 'desc' },
+        where: { action: "EXAMINER_ASSIGNED" },
+        orderBy: { createdAt: "desc" },
         select: { claimId: true, details: true },
       });
 
@@ -469,7 +511,9 @@ export class ClaimsService {
         }
       }
 
-      const allAssignedIds = Array.from(new Set([...assessedClaimIds, ...assignedEventClaimIds]));
+      const allAssignedIds = Array.from(
+        new Set([...assessedClaimIds, ...assignedEventClaimIds]),
+      );
       where.id = { in: allAssignedIds };
     }
 
@@ -479,9 +523,9 @@ export class ClaimsService {
 
     if (query.q) {
       where.OR = [
-        { claimNumber: { contains: query.q, mode: 'insensitive' } },
-        { claimantFullName: { contains: query.q, mode: 'insensitive' } },
-        { vehiclePlateNumber: { contains: query.q, mode: 'insensitive' } },
+        { claimNumber: { contains: query.q, mode: "insensitive" } },
+        { claimantFullName: { contains: query.q, mode: "insensitive" } },
+        { vehiclePlateNumber: { contains: query.q, mode: "insensitive" } },
       ];
     }
 
@@ -496,7 +540,7 @@ export class ClaimsService {
         where,
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           policy: true,
           assessment: {
@@ -507,8 +551,8 @@ export class ClaimsService {
             },
           },
           auditEvents: {
-            where: { action: 'EXAMINER_ASSIGNED' },
-            orderBy: { createdAt: 'desc' },
+            where: { action: "EXAMINER_ASSIGNED" },
+            orderBy: { createdAt: "desc" },
             take: 1,
           },
           evidence: {
@@ -518,7 +562,11 @@ export class ClaimsService {
               matchedBy: {
                 include: {
                   matchedEvidence: {
-                    select: { id: true, claimId: true, claim: { select: { claimNumber: true } } },
+                    select: {
+                      id: true,
+                      claimId: true,
+                      claim: { select: { claimNumber: true } },
+                    },
                   },
                 },
               },
@@ -551,9 +599,11 @@ export class ClaimsService {
           },
         },
         auditEvents: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           include: {
-            actor: { select: { id: true, name: true, email: true, role: true } },
+            actor: {
+              select: { id: true, name: true, email: true, role: true },
+            },
           },
         },
         evidence: {
@@ -563,95 +613,112 @@ export class ClaimsService {
             matchedBy: {
               include: {
                 matchedEvidence: {
-                  select: { id: true, claimId: true, claim: { select: { claimNumber: true } } },
+                  select: {
+                    id: true,
+                    claimId: true,
+                    claim: { select: { claimNumber: true } },
+                  },
                 },
               },
             },
           },
         },
         decisions: {
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
         _count: { select: { evidence: true } },
       },
     });
 
-    if (!claim) throw new NotFoundException('Claim not found');
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
-      throw new ForbiddenException('Access denied to this claim');
+    if (userRole === "INTAKE_USER" && claim.createdById !== userId) {
+      throw new ForbiddenException("Access denied to this claim");
     }
 
-    if (userRole === 'EXAMINER') {
+    if (userRole === "EXAMINER") {
       const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
       if (!isAssigned) {
-        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+        throw new ForbiddenException(
+          "Access denied: this claim is not assigned to you",
+        );
       }
 
       // Automatically transition eligible assigned claims to UNDER_REVIEW upon examiner inspection
-      if (['SUBMITTED', 'READY_FOR_REVIEW', 'PROCESSING'].includes(claim.status)) {
+      if (
+        ["SUBMITTED", "READY_FOR_REVIEW", "PROCESSING"].includes(claim.status)
+      ) {
         const previousStatus = claim.status;
         await this.prisma.claim.update({
           where: { id: claimId },
-          data: { status: 'UNDER_REVIEW' },
+          data: { status: "UNDER_REVIEW" },
         });
         await this.prisma.auditEvent.create({
           data: {
             claimId,
             actorId: userId,
-            action: 'STATUS_CHANGED',
+            action: "STATUS_CHANGED",
             summary: `Claim transitioned to UNDER_REVIEW upon examiner review`,
-            details: { previousStatus, newStatus: 'UNDER_REVIEW' },
+            details: { previousStatus, newStatus: "UNDER_REVIEW" },
           },
         });
-        claim.status = 'UNDER_REVIEW';
+        claim.status = "UNDER_REVIEW";
       }
     }
 
     return formatClaim(claim);
   }
 
-  async submit(claimId: string, dto: SubmitClaimDto, userId: string, userRole: string) {
+  async submit(
+    claimId: string,
+    dto: SubmitClaimDto,
+    userId: string,
+    userRole: string,
+  ) {
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
       include: { policy: true },
     });
 
-    if (!claim) throw new NotFoundException('Claim not found');
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
-      throw new ForbiddenException('Access denied to submit this claim');
+    if (userRole === "INTAKE_USER" && claim.createdById !== userId) {
+      throw new ForbiddenException("Access denied to submit this claim");
     }
 
-    if (claim.status !== 'DRAFT' && claim.status !== 'POLICY_UNVERIFIED') {
+    if (claim.status !== "DRAFT" && claim.status !== "POLICY_UNVERIFIED") {
       throw new ConflictException(`Claim is already in ${claim.status} status`);
     }
 
     let policyVerification = claim.policyVerification;
     if (claim.policy) {
-      if (claim.policy.status !== 'ACTIVE') {
-        throw new ConflictException(`Cannot submit claim: Policy is ${claim.policy.status}`);
+      if (claim.policy.status !== "ACTIVE") {
+        throw new ConflictException(
+          `Cannot submit claim: Policy is ${claim.policy.status}`,
+        );
       }
       if (claim.policy.validTo && new Date(claim.policy.validTo) < new Date()) {
-        throw new ConflictException('Cannot submit claim: Policy has expired');
+        throw new ConflictException("Cannot submit claim: Policy has expired");
       }
-      policyVerification = 'VERIFIED';
+      policyVerification = "VERIFIED";
     }
 
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
       data: {
-        status: 'SUBMITTED',
+        status: "SUBMITTED",
         policyVerification,
       },
       include: {
         policy: true,
         assessment: {
-          include: { examiner: { select: { id: true, name: true, role: true } } },
+          include: {
+            examiner: { select: { id: true, name: true, role: true } },
+          },
         },
         auditEvents: {
-          where: { action: 'EXAMINER_ASSIGNED' },
-          orderBy: { createdAt: 'desc' },
+          where: { action: "EXAMINER_ASSIGNED" },
+          orderBy: { createdAt: "desc" },
           take: 1,
         },
         _count: { select: { evidence: true } },
@@ -662,7 +729,7 @@ export class ClaimsService {
       data: {
         claimId,
         actorId: userId,
-        action: 'CLAIM_SUBMITTED',
+        action: "CLAIM_SUBMITTED",
         summary: `Claim ${claim.claimNumber} submitted for adjudication`,
         details: { confirmationNotes: dto.confirmationNotes },
       },
@@ -671,25 +738,31 @@ export class ClaimsService {
     return formatClaim(updated);
   }
 
-  async assignExaminer(claimId: string, dto: AssignExaminerDto, adminId: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+  async assignExaminer(
+    claimId: string,
+    dto: AssignExaminerDto,
+    adminId: string,
+  ) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
     const examiner = await this.prisma.user.findUnique({
       where: { id: dto.examinerId },
     });
 
-    if (!examiner) throw new NotFoundException('Examiner not found');
-    if (examiner.role !== 'EXAMINER' && examiner.role !== 'ADMIN') {
-      throw new ConflictException('Selected user is not an examiner');
+    if (!examiner) throw new NotFoundException("Examiner not found");
+    if (examiner.role !== "EXAMINER" && examiner.role !== "ADMIN") {
+      throw new ConflictException("Selected user is not an examiner");
     }
 
     let newStatus = claim.status;
-    if (['SUBMITTED', 'READY_FOR_REVIEW'].includes(claim.status)) {
-      newStatus = 'UNDER_REVIEW';
+    if (["SUBMITTED", "READY_FOR_REVIEW"].includes(claim.status)) {
+      newStatus = "UNDER_REVIEW";
       await this.prisma.claim.update({
         where: { id: claimId },
-        data: { status: 'UNDER_REVIEW' },
+        data: { status: "UNDER_REVIEW" },
       });
     }
 
@@ -697,7 +770,7 @@ export class ClaimsService {
       data: {
         claimId,
         actorId: adminId,
-        action: 'EXAMINER_ASSIGNED',
+        action: "EXAMINER_ASSIGNED",
         summary: `Claim assigned to examiner ${examiner.name}`,
         details: {
           examinerId: examiner.id,
@@ -720,19 +793,21 @@ export class ClaimsService {
   }
 
   async close(claimId: string, dto: CloseClaimDto, adminId: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
-      data: { status: 'CLOSED' },
+      data: { status: "CLOSED" },
     });
 
     await this.prisma.auditEvent.create({
       data: {
         claimId,
         actorId: adminId,
-        action: 'CLAIM_CLOSED',
+        action: "CLAIM_CLOSED",
         summary: `Claim closed: ${dto.reason}`,
         details: { reason: dto.reason, notes: dto.notes },
       },
@@ -745,46 +820,81 @@ export class ClaimsService {
     };
   }
 
-  async update(claimId: string, dto: UpdateClaimDto, userId: string, userRole: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+  async update(
+    claimId: string,
+    dto: UpdateClaimDto,
+    userId: string,
+    userRole: string,
+  ) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole === "INTAKE_USER" && claim.createdById !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
     // INTAKE_USER can only edit before review
     if (
-      userRole === 'INTAKE_USER' &&
-      ['UNDER_REVIEW', 'ASSESSED', 'APPROVED', 'REJECTED', 'CLOSED'].includes(claim.status)
+      userRole === "INTAKE_USER" &&
+      ["UNDER_REVIEW", "ASSESSED", "APPROVED", "REJECTED", "CLOSED"].includes(
+        claim.status,
+      )
     ) {
-      throw new ConflictException('Claim cannot be edited in its current status');
+      throw new ConflictException(
+        "Claim cannot be edited in its current status",
+      );
     }
 
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
       data: {
-        ...(dto.claimant?.fullName && { claimantFullName: dto.claimant.fullName }),
-        ...(dto.claimant?.phone !== undefined && { claimantPhone: dto.claimant.phone }),
-        ...(dto.claimant?.email !== undefined && { claimantEmail: dto.claimant.email }),
-        ...(dto.vehicle?.plateNumber !== undefined && { vehiclePlateNumber: dto.vehicle.plateNumber }),
-        ...(dto.vehicle?.make !== undefined && { vehicleMake: dto.vehicle.make }),
-        ...(dto.vehicle?.model !== undefined && { vehicleModel: dto.vehicle.model }),
-        ...(dto.vehicle?.year !== undefined && { vehicleYear: dto.vehicle.year }),
+        ...(dto.claimant?.fullName && {
+          claimantFullName: dto.claimant.fullName,
+        }),
+        ...(dto.claimant?.phone !== undefined && {
+          claimantPhone: dto.claimant.phone,
+        }),
+        ...(dto.claimant?.email !== undefined && {
+          claimantEmail: dto.claimant.email,
+        }),
+        ...(dto.vehicle?.plateNumber !== undefined && {
+          vehiclePlateNumber: dto.vehicle.plateNumber,
+        }),
+        ...(dto.vehicle?.make !== undefined && {
+          vehicleMake: dto.vehicle.make,
+        }),
+        ...(dto.vehicle?.model !== undefined && {
+          vehicleModel: dto.vehicle.model,
+        }),
+        ...(dto.vehicle?.year !== undefined && {
+          vehicleYear: dto.vehicle.year,
+        }),
         ...(dto.vehicle?.vin !== undefined && { vehicleVin: dto.vehicle.vin }),
-        ...(dto.incident?.occurredAt && { incidentOccurredAt: new Date(dto.incident.occurredAt) }),
-        ...(dto.incident?.location !== undefined && { incidentLocation: dto.incident.location }),
-        ...(dto.incident?.description !== undefined && { incidentDescription: dto.incident.description }),
-        ...(dto.incident?.incidentType !== undefined && { incidentType: dto.incident.incidentType as any }),
+        ...(dto.incident?.occurredAt && {
+          incidentOccurredAt: new Date(dto.incident.occurredAt),
+        }),
+        ...(dto.incident?.location !== undefined && {
+          incidentLocation: dto.incident.location,
+        }),
+        ...(dto.incident?.description !== undefined && {
+          incidentDescription: dto.incident.description,
+        }),
+        ...(dto.incident?.incidentType !== undefined && {
+          incidentType: dto.incident.incidentType as any,
+        }),
       },
       include: {
         policy: true,
         assessment: {
-          include: { examiner: { select: { id: true, name: true, role: true } } },
+          include: {
+            examiner: { select: { id: true, name: true, role: true } },
+          },
         },
         auditEvents: {
-          where: { action: 'EXAMINER_ASSIGNED' },
-          orderBy: { createdAt: 'desc' },
+          where: { action: "EXAMINER_ASSIGNED" },
+          orderBy: { createdAt: "desc" },
           take: 1,
         },
         _count: { select: { evidence: true } },
@@ -795,8 +905,8 @@ export class ClaimsService {
       data: {
         claimId,
         actorId: userId,
-        action: 'CLAIM_UPDATED',
-        summary: 'Claim intake fields updated',
+        action: "CLAIM_UPDATED",
+        summary: "Claim intake fields updated",
       },
     });
 
@@ -809,31 +919,39 @@ export class ClaimsService {
     userId: string,
     userRole: string,
   ) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'INTAKE_USER') {
+    if (userRole === "INTAKE_USER") {
       // Intake users can only submit (DRAFT -> SUBMITTED)
-      if (claim.status !== 'DRAFT' || dto.status !== 'SUBMITTED') {
-        throw new ForbiddenException('Intake users can only submit draft claims');
+      if (claim.status !== "DRAFT" || dto.status !== "SUBMITTED") {
+        throw new ForbiddenException(
+          "Intake users can only submit draft claims",
+        );
       }
     }
 
-    if (userRole === 'EXAMINER') {
+    if (userRole === "EXAMINER") {
       const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
       if (!isAssigned) {
-        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+        throw new ForbiddenException(
+          "Access denied: this claim is not assigned to you",
+        );
       }
       // Examiners cannot arbitrarily approve, reject, or close without decision endpoint
-      if (['APPROVED', 'REJECTED', 'CLOSED'].includes(dto.status)) {
-        throw new ForbiddenException('Final decisions must be recorded via the decision action');
+      if (["APPROVED", "REJECTED", "CLOSED"].includes(dto.status)) {
+        throw new ForbiddenException(
+          "Final decisions must be recorded via the decision action",
+        );
       }
     }
 
     const allowed = ALLOWED_TRANSITIONS[claim.status] || [];
     if (!allowed.includes(dto.status)) {
       throw new ConflictException(
-        `Claim cannot move from ${claim.status} to ${dto.status}. Allowed: ${allowed.join(', ')}`,
+        `Claim cannot move from ${claim.status} to ${dto.status}. Allowed: ${allowed.join(", ")}`,
       );
     }
 
@@ -846,8 +964,8 @@ export class ClaimsService {
       data: {
         claimId,
         actorId: userId,
-        action: 'STATUS_CHANGED',
-        summary: `Status changed from ${claim.status} to ${dto.status}${dto.note ? ': ' + dto.note : ''}`,
+        action: "STATUS_CHANGED",
+        summary: `Status changed from ${claim.status} to ${dto.status}${dto.note ? ": " + dto.note : ""}`,
         details: { from: claim.status, to: dto.status, note: dto.note },
       },
     });
@@ -860,16 +978,18 @@ export class ClaimsService {
   }
 
   async getTimeline(claimId: string, userId: string, userRole: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'INTAKE_USER' && claim.createdById !== userId) {
-      throw new ForbiddenException('Access denied');
+    if (userRole === "INTAKE_USER" && claim.createdById !== userId) {
+      throw new ForbiddenException("Access denied");
     }
 
     const events = await this.prisma.auditEvent.findMany({
       where: { claimId },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: "asc" },
       include: { actor: { select: { id: true, name: true, role: true } } },
     });
 
@@ -886,37 +1006,45 @@ export class ClaimsService {
   }
 
   async startReview(claimId: string, userId: string, userRole: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'EXAMINER') {
+    if (userRole === "EXAMINER") {
       const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
       if (!isAssigned) {
-        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+        throw new ForbiddenException(
+          "Access denied: this claim is not assigned to you",
+        );
       }
     }
 
-    if (claim.status === 'UNDER_REVIEW') {
-      return { id: claimId, status: 'UNDER_REVIEW', alreadyUnderReview: true };
+    if (claim.status === "UNDER_REVIEW") {
+      return { id: claimId, status: "UNDER_REVIEW", alreadyUnderReview: true };
     }
 
-    if (['ASSESSED', 'APPROVED', 'REJECTED', 'CLOSED'].includes(claim.status)) {
-      return { id: claimId, status: claim.status, message: 'Claim is in a later review stage' };
+    if (["ASSESSED", "APPROVED", "REJECTED", "CLOSED"].includes(claim.status)) {
+      return {
+        id: claimId,
+        status: claim.status,
+        message: "Claim is in a later review stage",
+      };
     }
 
     const previousStatus = claim.status;
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
-      data: { status: 'UNDER_REVIEW' },
+      data: { status: "UNDER_REVIEW" },
     });
 
     await this.prisma.auditEvent.create({
       data: {
         claimId,
         actorId: userId,
-        action: 'STATUS_CHANGED',
+        action: "STATUS_CHANGED",
         summary: `Status transitioned from ${previousStatus} to UNDER_REVIEW upon examiner review`,
-        details: { previousStatus, newStatus: 'UNDER_REVIEW' },
+        details: { previousStatus, newStatus: "UNDER_REVIEW" },
       },
     });
 
@@ -927,34 +1055,46 @@ export class ClaimsService {
     };
   }
 
-  async requestEvidence(claimId: string, dto: RequestEvidenceDto, userId: string, userRole?: string) {
-    const claim = await this.prisma.claim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundException('Claim not found');
+  async requestEvidence(
+    claimId: string,
+    dto: RequestEvidenceDto,
+    userId: string,
+    userRole?: string,
+  ) {
+    const claim = await this.prisma.claim.findUnique({
+      where: { id: claimId },
+    });
+    if (!claim) throw new NotFoundException("Claim not found");
 
-    if (userRole === 'EXAMINER') {
+    if (userRole === "EXAMINER") {
       const isAssigned = await this.isClaimAssignedToExaminer(claimId, userId);
       if (!isAssigned) {
-        throw new ForbiddenException('Access denied: this claim is not assigned to you');
+        throw new ForbiddenException(
+          "Access denied: this claim is not assigned to you",
+        );
       }
     }
 
     const message =
       dto.message?.trim() ||
-      (dto.notes?.trim() ? `${dto.item?.trim() || 'Evidence'} - ${dto.notes.trim()}` : dto.item?.trim()) ||
-      'Additional evidence requested';
+      (dto.notes?.trim()
+        ? `${dto.item?.trim() || "Evidence"} - ${dto.notes.trim()}`
+        : dto.item?.trim()) ||
+      "Additional evidence requested";
 
-    const requestedItems = dto.requestedItems || (dto.item ? [dto.item.trim()] : []);
+    const requestedItems =
+      dto.requestedItems || (dto.item ? [dto.item.trim()] : []);
 
     const updated = await this.prisma.claim.update({
       where: { id: claimId },
-      data: { status: 'NEED_MORE_EVIDENCE' },
+      data: { status: "NEED_MORE_EVIDENCE" },
     });
 
     await this.prisma.auditEvent.create({
       data: {
         claimId,
         actorId: userId,
-        action: 'EVIDENCE_REQUESTED',
+        action: "EVIDENCE_REQUESTED",
         summary: message,
         details: {
           message,
@@ -975,4 +1115,3 @@ export class ClaimsService {
     };
   }
 }
-

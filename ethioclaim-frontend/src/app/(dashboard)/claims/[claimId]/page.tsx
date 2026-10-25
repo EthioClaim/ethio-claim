@@ -108,7 +108,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
           // ignore
         }
       }
-      fetchCurrentUser().then(setCurrentUser).catch(() => {});
+      fetchCurrentUser().then(setCurrentUser).catch(() => { });
 
       const [c, a, t] = await Promise.allSettled([
         fetchClaim(claimId),
@@ -407,12 +407,12 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
   const allowedTransitions = isExaminer
     ? [
-        { status: "UNDER_REVIEW" as ClaimStatus, label: "Under Review" },
-        { status: "NEED_MORE_EVIDENCE" as ClaimStatus, label: "Need More Evidence" },
-        { status: "ASSESSED" as ClaimStatus, label: "Assessed" },
-      ]
+      { status: "UNDER_REVIEW" as ClaimStatus, label: "Under Review" },
+      { status: "NEED_MORE_EVIDENCE" as ClaimStatus, label: "Need More Evidence" },
+      { status: "ASSESSED" as ClaimStatus, label: "Assessed" },
+    ]
     : isAdmin
-    ? [
+      ? [
         { status: "READY_FOR_REVIEW" as ClaimStatus, label: "Ready For Review" },
         { status: "UNDER_REVIEW" as ClaimStatus, label: "Under Review" },
         { status: "NEED_MORE_EVIDENCE" as ClaimStatus, label: "Need More Evidence" },
@@ -421,7 +421,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
         { status: "REJECTED" as ClaimStatus, label: "Rejected" },
         { status: "CLOSED" as ClaimStatus, label: "Closed" },
       ]
-    : [];
+      : [];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -739,11 +739,10 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                         type="button"
                         disabled={updatingStatus || isCurrent}
                         onClick={() => handleStatusChange(s.status)}
-                        className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
-                          isCurrent
+                        className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${isCurrent
                             ? "bg-[#0A84FF] text-white border-[#0A84FF] shadow-sm cursor-default"
                             : "bg-white/[0.04] text-[var(--text-secondary)] border-white/10 hover:bg-white/10 hover:text-white cursor-pointer"
-                        }`}
+                          }`}
                       >
                         <span>{s.label}</span>
                       </button>
@@ -831,11 +830,10 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                       key={sev}
                       type="button"
                       onClick={() => setSeverity(sev)}
-                      className={`text-xs py-2 px-3 rounded-xl font-semibold border transition-all ${
-                        severity === sev
+                      className={`text-xs py-2 px-3 rounded-xl font-semibold border transition-all ${severity === sev
                           ? "bg-[#0A84FF] text-white border-[#0A84FF] shadow-sm"
                           : "bg-white/[0.04] text-[var(--text-secondary)] border-white/10 hover:bg-white/10"
-                      }`}
+                        }`}
                     >
                       {sev}
                     </button>

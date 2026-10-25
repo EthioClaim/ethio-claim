@@ -14,6 +14,12 @@ interface NavItem {
   allowedRoles?: string[];
 }
 
+const NavIcon = ({ path }: { path: string }) => (
+  <svg className="w-4 h-4 flex-shrink-0 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+    <path strokeLinecap="round" strokeLinejoin="round" d={path} />
+  </svg>
+);
+
 const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
   {
     group: "Operational Overview",
@@ -21,7 +27,9 @@ const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
       {
         href: "/dashboard",
         label: "Dashboard",
-        icon: <HeroIcon name="home" />,
+        icon: (
+          <NavIcon path="M4 5a1 1 0 011-1h4a1 1 0 011 1v5a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h4a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM14 5a1 1 0 011-1h4a1 1 0 011 1v14a1 1 0 01-1 1h-4a1 1 0 01-1-1V5z" />
+        ),
       },
     ],
   },
@@ -31,19 +39,23 @@ const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
       {
         href: "/claims",
         label: "Claims Management",
-        icon: <HeroIcon name="clipboard-list" />,
+        icon: (
+          <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        ),
       },
       {
         href: "/evidence",
         label: "Evidence Inspection",
         allowedRoles: ["EXAMINER", "ADMIN"],
-        icon: <HeroIcon name="document-text" />,
+        icon: (
+          <NavIcon path="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+        ),
       },
       {
         href: "/claims/new",
         label: "New Claim Intake",
         allowedRoles: ["INTAKE_USER", "ADMIN"],
-        icon: <HeroIcon name="plus" />,
+        icon: <NavIcon path="M12 4v16m8-8H4" />,
       },
     ],
   },
@@ -65,25 +77,33 @@ const navGroups: { group: string; adminOnly?: boolean; items: NavItem[] }[] = [
         href: "/admin/users",
         label: "Staff & Users",
         allowedRoles: ["ADMIN"],
-        icon: <HeroIcon name="users" />,
+        icon: (
+          <NavIcon path="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+        ),
       },
       {
         href: "/admin/policies",
         label: "Policy Registry Admin",
         allowedRoles: ["ADMIN"],
-        icon: <HeroIcon name="folder" />,
+        icon: (
+          <NavIcon path="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        ),
       },
       {
         href: "/admin/audit",
         label: "Audit Logs",
         allowedRoles: ["ADMIN"],
-        icon: <HeroIcon name="clipboard" />,
+        icon: (
+          <NavIcon path="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2zM15 7a2 2 0 11-4 0 2 2 0 014 0z" />
+        ),
       },
       {
         href: "/admin/operations",
         label: "Analysis Operations",
         allowedRoles: ["ADMIN"],
-        icon: <HeroIcon name="cog" />,
+        icon: (
+          <NavIcon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        ),
       },
     ],
   },
@@ -109,7 +129,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
     fetchCurrentUser()
       .then((u) => setUser(u))
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   function handleLogout() {
@@ -119,8 +139,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   return (
     <aside className={`sidebar apple-sidebar ${isOpen ? "mobile-open" : ""}`}>
-      {/* ── Brand Header (Apple Elevated Squircle Logo) ── */}
-      <div className="flex items-center gap-3.5 px-6 py-6 border-b border-[var(--border)]">
+      {/* Brand Header */}
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-[var(--border)]">
         <div
           className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md relative overflow-hidden"
           style={{
@@ -154,17 +174,17 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
             type="button"
             onClick={onClose}
             aria-label="Close navigation"
-            className="lg:hidden ml-auto p-1.5 rounded-xl text-[var(--text-muted)] hover:text-white hover:bg-white/10 active:scale-95 transition-all"
+            className="lg:hidden ml-auto p-1.5 rounded-lg text-[var(--text-muted)] hover:text-white hover:bg-white/10 active:scale-95 transition-all"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         )}
       </div>
 
-      {/* ── Navigation Groups ── */}
-      <nav className="flex-1 px-3.5 py-5 space-y-6 overflow-y-auto">
+      {/* Navigation Groups */}
+      <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto">
         {navGroups
           .filter((group) => !group.adminOnly || user?.role === "ADMIN")
           .map((group) => {
@@ -176,15 +196,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
             return (
               <div key={group.group} className="space-y-1">
-                <div className="px-3 pb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="px-3 flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">
                   <span>{group.group}</span>
                   {group.adminOnly && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#BF5AF2]/20 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#BF5AF2]/20 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono">
                       ADMIN
                     </span>
                   )}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 pt-1">
                   {visibleItems.map((item) => {
                     const isActive =
                       pathname === item.href ||
@@ -192,6 +212,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
                         item.href !== "/dashboard" &&
                         pathname.startsWith(item.href));
 
+                    // Role-tailored friendly label
                     let dynamicLabel = item.label;
                     if (item.href === "/claims") {
                       if (user?.role === "EXAMINER") dynamicLabel = "Assigned Queue";
@@ -208,16 +229,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
                         key={item.href}
                         href={item.href}
                         onClick={() => onClose?.()}
-                        className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all duration-200 select-none ${
-                          isActive
-                            ? "bg-[#0A84FF] text-white shadow-sm shadow-[#0A84FF]/30 font-semibold"
-                            : "text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.06] active:scale-[0.98]"
-                        }`}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold active:scale-[0.98] transition-all ${isActive
+                            ? "bg-[#0A84FF] text-white shadow-sm"
+                            : "text-[var(--text-secondary)] hover:text-white hover:bg-white/[0.06]"
+                          }`}
                       >
-                        <span className={`w-4 h-4 flex-shrink-0 ${isActive ? "text-white" : "text-[var(--text-muted)]"}`}>
-                          {item.icon}
-                        </span>
-                        <span className="truncate">{dynamicLabel}</span>
+                        {item.icon}
+                        <span>{dynamicLabel}</span>
                       </Link>
                     );
                   })}

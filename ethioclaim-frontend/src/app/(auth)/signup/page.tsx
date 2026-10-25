@@ -176,11 +176,10 @@ export default function SignupPage() {
                     key={r}
                     type="button"
                     onClick={() => setRole(r)}
-                    className={`p-3 rounded-2xl border text-left transition-all active:scale-[0.98] flex flex-col justify-between ${
-                      isSelected
+                    className={`p-3 rounded-2xl border text-left transition-all active:scale-[0.98] flex flex-col justify-between ${isSelected
                         ? "bg-white/[0.08] border-[#0A84FF] shadow-sm shadow-[#0A84FF]/20"
                         : "bg-white/[0.03] border-white/8 hover:bg-white/[0.06] hover:border-white/15"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between w-full mb-1">
                       <span

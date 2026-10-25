@@ -6,7 +6,9 @@
    ══════════════════════════════════════════════════════════════════ */
 
 /* ── Reset & Optical Typography Foundations (Rule 15) ───────────── */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -31,7 +33,10 @@ body {
 }
 
 /* ── Optical Display Hierarchy (Rule 15: Optical Sizing & Tracking) ── */
-h1, h2, h3, .heading-display {
+h1,
+h2,
+h3,
+.heading-display {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
   letter-spacing: -0.026em;
   line-height: 1.25;
@@ -39,21 +44,24 @@ h1, h2, h3, .heading-display {
   margin-bottom: 0.5rem;
 }
 
-h4, h5, h6, .heading-sub {
+h4,
+h5,
+h6,
+.heading-sub {
   letter-spacing: -0.018em;
   line-height: 1.35;
   font-weight: 600;
   margin-bottom: 0.375rem;
 }
 
-.flex.items-center > h1,
-.flex.items-center > h2,
-.flex.items-center > h3,
-.flex.items-center > h4,
-.inline-flex > h1,
-.inline-flex > h2,
-.inline-flex > h3,
-.inline-flex > h4 {
+.flex.items-center>h1,
+.flex.items-center>h2,
+.flex.items-center>h3,
+.flex.items-center>h4,
+.inline-flex>h1,
+.inline-flex>h2,
+.inline-flex>h3,
+.inline-flex>h4 {
   margin-bottom: 0;
 }
 
@@ -62,13 +70,16 @@ h4, h5, h6, .heading-sub {
   width: 6px;
   height: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
 }
@@ -109,6 +120,7 @@ h4, h5, h6, .heading-sub {
 .glass-hover {
   transition: background 0.25s var(--spring-crit), border-color 0.2s, transform 0.25s var(--spring-crit);
 }
+
 .glass-hover:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-light);
@@ -170,6 +182,7 @@ h4, h5, h6, .heading-sub {
   color: #FFFFFF;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
+
 .btn-primary:hover {
   background: var(--accent-blue-hover);
   box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
@@ -183,6 +196,7 @@ h4, h5, h6, .heading-sub {
   -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--highlight-bevel);
 }
+
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.12);
   border-color: var(--border-highlight);
@@ -193,6 +207,7 @@ h4, h5, h6, .heading-sub {
   border: 1px solid rgba(255, 69, 58, 0.32);
   color: #FF453A;
 }
+
 .btn-danger:hover {
   background: rgba(255, 69, 58, 0.26);
   border-color: rgba(255, 69, 58, 0.55);
@@ -203,6 +218,7 @@ h4, h5, h6, .heading-sub {
   color: var(--text-secondary);
   border: 1px solid transparent;
 }
+
 .btn-ghost:hover {
   background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
@@ -245,10 +261,12 @@ h4, h5, h6, .heading-sub {
   user-select: none;
   white-space: nowrap;
 }
+
 .segmented-item:active {
   transform: scale(0.965);
   transition: transform var(--touch-duration) var(--spring-snappy);
 }
+
 .segmented-item.active {
   background: rgba(255, 255, 255, 0.14);
   color: var(--text-primary);
@@ -269,19 +287,23 @@ h4, h5, h6, .heading-sub {
   transition: border-color 0.2s, box-shadow 0.22s var(--spring-crit), background-color 0.2s;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
 }
+
 .input:focus {
   background: var(--bg-input-focus);
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.24), inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
+
 .input::placeholder {
   color: var(--text-muted);
 }
+
 input[type="date"],
 input[type="datetime-local"],
 input[type="time"] {
   color-scheme: dark;
 }
+
 textarea.input {
   resize: vertical;
   min-height: 84px;
@@ -311,14 +333,17 @@ textarea.input {
   cursor: pointer;
   box-shadow: var(--highlight-bevel);
 }
+
 .select:hover {
   background-color: var(--bg-input-focus);
   border-color: var(--border-light);
 }
+
 .select:focus {
   border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.24);
 }
+
 .select:active {
   transform: scale(0.985);
   transition: transform var(--touch-duration) var(--spring-snappy);
@@ -329,6 +354,7 @@ textarea.input {
   width: 100%;
   border-collapse: collapse;
 }
+
 .table th {
   padding: 14px 20px;
   text-align: left;
@@ -340,18 +366,22 @@ textarea.input {
   border-bottom: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.02);
 }
+
 .table td {
   padding: 16px 20px;
   font-size: 0.875rem;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
+
 .table tr:last-child td {
   border-bottom: none;
 }
+
 .table tbody tr {
   transition: background-color 0.18s ease;
 }
+
 .table tbody tr:hover {
   background: rgba(255, 255, 255, 0.04);
 }
@@ -371,6 +401,7 @@ textarea.input {
   -webkit-backdrop-filter: blur(12px);
   transition: transform 0.2s var(--spring-crit);
 }
+
 .badge:active {
   transform: scale(0.96);
 }
@@ -387,6 +418,7 @@ textarea.input {
   -webkit-backdrop-filter: blur(36px) saturate(190%);
   border-right: 1px solid var(--border);
   z-index: 50;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -398,6 +430,7 @@ textarea.input {
   .sidebar:not(.mobile-open) {
     transform: translateX(-100%);
   }
+
   .sidebar.mobile-open {
     transform: translateX(0);
     box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.65), 8px 0 32px rgba(0, 0, 0, 0.5);
@@ -419,14 +452,17 @@ textarea.input {
   transition: all 0.22s var(--spring-crit);
   user-select: none;
 }
+
 .sidebar-link:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-primary);
 }
+
 .sidebar-link:active {
   transform: scale(0.975);
   transition: transform var(--touch-duration) var(--spring-snappy);
 }
+
 .sidebar-link.active {
   background: var(--accent-blue-subtle);
   color: #64D2FF;
@@ -464,11 +500,13 @@ textarea.input {
   transition: transform 0.3s var(--spring-crit), border-color 0.2s, box-shadow 0.3s var(--spring-crit);
   user-select: none;
 }
+
 .stat-card:hover {
   border-color: var(--border-light);
   transform: translateY(-2px);
   box-shadow: var(--highlight-bevel), var(--shadow-elevated);
 }
+
 .stat-card:active {
   transform: scale(0.985);
   transition: transform var(--touch-duration) var(--spring-snappy);
@@ -482,7 +520,10 @@ textarea.input {
   padding-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
+
 .tab-btn {
   padding: 10px 18px;
   font-size: 0.875rem;
@@ -496,13 +537,16 @@ textarea.input {
   border-radius: 8px 8px 0 0;
   white-space: nowrap;
 }
+
 .tab-btn:hover {
   color: var(--text-primary);
 }
+
 .tab-btn:active {
   transform: scale(0.96);
   transition: transform var(--touch-duration) var(--spring-snappy);
 }
+
 .tab-btn.active {
   color: var(--accent-blue);
   border-bottom-color: var(--accent-blue);
@@ -517,6 +561,7 @@ textarea.input {
   background: rgba(255, 255, 255, 0.08);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
 }
+
 .progress-bar-fill {
   height: 100%;
   border-radius: 9999px;
@@ -536,6 +581,7 @@ textarea.input {
   justify-content: center;
   padding: 16px;
 }
+
 .modal {
   background: var(--material-modal);
   backdrop-filter: blur(36px) saturate(200%);
@@ -554,6 +600,7 @@ textarea.input {
     opacity: 0;
     transform: scale(0.95) translateY(12px);
   }
+
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -567,9 +614,15 @@ textarea.input {
   animation: appleShimmer 2s infinite ease-in-out;
   border-radius: 8px;
 }
+
 @keyframes appleShimmer {
-  0%   { background-position: -200% 0; }
-  100% { background-position:  200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* ── Dynamic Text & Accents ──────────────────────────────────────── */
@@ -585,6 +638,7 @@ textarea.input {
     opacity: 0;
     transform: translateY(12px);
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -595,6 +649,7 @@ textarea.input {
   0% {
     opacity: 0;
   }
+
   100% {
     opacity: 1;
   }
@@ -610,12 +665,16 @@ textarea.input {
 
 /* ── Reduced Motion Accessibility (Rule 14) ──────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+
   .card-press:active,
   .interactive-press:active,
   .btn:active,
@@ -624,10 +683,17 @@ textarea.input {
   .tab-btn:active {
     transform: none !important;
   }
+
   .modal,
   .animate-fade-in-up,
   .animate-fade-in {
-    animation: none !important;
-    transform: none !important;
+
+    .modal,
+    .animate-fade-in-up,
+    .animate-fade-in {
+      animation: none !important;
+      transform: none !important;
+      transform: none !important;
+    }
   }
 }

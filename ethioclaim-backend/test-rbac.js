@@ -77,7 +77,7 @@ async function run() {
 
     // 2. Test INTAKE_USER Permissions & Boundaries
     console.log('\n2. Testing INTAKE_USER boundaries (Least Privilege)...');
-    
+
     // Intake cannot access Admin Users
     const intakeAdminUsers = await request('/admin/users', { token: intakeToken });
     assert(intakeAdminUsers.status === 403, 'Intake user blocked from GET /admin/users (403 Forbidden)');

@@ -26,7 +26,7 @@ import { RolesGuard, Roles } from '../auth/roles.guard';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('ADMIN')
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(private readonly adminService: AdminService) { }
 
   // ── Users Endpoints ─────────────────────────────────────────────────────────
   @Get('users')

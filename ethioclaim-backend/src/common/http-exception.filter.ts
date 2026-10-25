@@ -5,8 +5,8 @@ import {
   HttpException,
   HttpStatus,
   Logger,
-} from '@nestjs/common';
-import { Response } from 'express';
+} from "@nestjs/common";
+import { Response } from "express";
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
@@ -17,29 +17,32 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const response = ctx.getResponse<Response>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code = 'INTERNAL_SERVER_ERROR';
-    let message = 'An unexpected error occurred';
+    let code = "INTERNAL_SERVER_ERROR";
+    let message = "An unexpected error occurred";
     let details: any[] = [];
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res: any = exception.getResponse();
 
-      if (typeof res === 'string') {
+      if (typeof res === "string") {
         message = res;
-      } else if (typeof res === 'object' && res !== null) {
+      } else if (typeof res === "object" && res !== null) {
         message = res.message || exception.message;
         code = res.code || res.error || this.getStatusCodeName(status);
         if (Array.isArray(res.message)) {
           details = res.message;
-          message = details.join('; ');
-          code = 'VALIDATION_ERROR';
+          message = details.join("; ");
+          code = "VALIDATION_ERROR";
         } else if (res.details) {
           details = res.details;
         }
       }
     } else if (exception instanceof Error) {
-      this.logger.error(`Unhandled error: ${exception.message}`, exception.stack);
+      this.logger.error(
+        `Unhandled error: ${exception.message}`,
+        exception.stack,
+      );
       message = exception.message;
     }
 
@@ -54,27 +57,27 @@ export class HttpExceptionFilter implements ExceptionFilter {
   private getStatusCodeName(status: number): string {
     switch (status) {
       case 400:
-        return 'BAD_REQUEST';
+        return "BAD_REQUEST";
       case 401:
-        return 'UNAUTHENTICATED';
+        return "UNAUTHENTICATED";
       case 403:
-        return 'FORBIDDEN';
+        return "FORBIDDEN";
       case 404:
-        return 'NOT_FOUND';
+        return "NOT_FOUND";
       case 409:
-        return 'CONFLICT';
+        return "CONFLICT";
       case 413:
-        return 'FILE_TOO_LARGE';
+        return "FILE_TOO_LARGE";
       case 415:
-        return 'UNSUPPORTED_MEDIA_TYPE';
+        return "UNSUPPORTED_MEDIA_TYPE";
       case 422:
-        return 'UNPROCESSABLE_ENTITY';
+        return "UNPROCESSABLE_ENTITY";
       case 429:
-        return 'RATE_LIMITED';
+        return "RATE_LIMITED";
       case 503:
-        return 'SERVICE_UNAVAILABLE';
+        return "SERVICE_UNAVAILABLE";
       default:
-        return 'ERROR';
+        return "ERROR";
     }
   }
 }

@@ -67,12 +67,15 @@ export default function LoginPage() {
       return;
     }
 
+
     setLoading(true);
     try {
       await login(username.trim(), password);
       try { await fetchCurrentUser(); } catch { /* fallback */ }
+      try { await fetchCurrentUser(); } catch { /* fallback */ }
       router.push("/claims");
     } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Authentication failed. Check your credentials.");
       setError(err instanceof Error ? err.message : "Authentication failed. Check your credentials.");
     } finally {
       setLoading(false);
@@ -375,14 +378,12 @@ export default function LoginPage() {
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                  apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
-                }`}
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
+                  }`}
               />
               <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${
-                  apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
-                }`}
+                className={`relative inline-flex rounded-full h-2 w-2 ${apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
+                  }`}
               />
             </span>
             <span className="text-[11px] font-medium">
@@ -402,7 +403,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setShowSignUpModal(false)}
-                className="text-[var(--text-muted)] hover:text-white"
+                className="text-[var(--text-muted)] hover:text-white transition-colors text-lg"
               >
                 ✕
               </button>

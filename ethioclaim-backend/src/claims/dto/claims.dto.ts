@@ -1,7 +1,13 @@
 import {
-  IsString, IsOptional, IsEmail, IsInt, IsEnum, IsDateString, ValidateNested,
-} from 'class-validator';
-import { Type } from 'class-transformer';
+  IsString,
+  IsOptional,
+  IsEmail,
+  IsInt,
+  IsEnum,
+  IsDateString,
+  ValidateNested,
+} from "class-validator";
+import { Type } from "class-transformer";
 
 export class ClaimantDto {
   @IsString()

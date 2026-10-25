@@ -162,11 +162,10 @@ export default function AdminPoliciesPage() {
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between border shadow-lg ${
-            notification.type === "success"
+          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between border shadow-lg ${notification.type === "success"
               ? "bg-[#30D158]/15 border-[#30D158]/40 text-[#30D158]"
               : "bg-[#FF453A]/15 border-[#FF453A]/40 text-[#FF453A]"
-          }`}
+            }`}
         >
           <span>{notification.message}</span>
           <button onClick={() => setNotification(null)} className="text-white/60 hover:text-white">
@@ -341,18 +340,16 @@ export default function AdminPoliciesPage() {
 
                       <td className="px-5 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
-                            isActive
+                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono ${isActive
                               ? "bg-[#30D158]/10 text-[#30D158] border border-[#30D158]/30"
                               : isExpired
-                              ? "bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/30"
-                              : "bg-[#FF9F0A]/10 text-[#FF9F0A] border border-[#FF9F0A]/30"
-                          }`}
+                                ? "bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/30"
+                                : "bg-[#FF9F0A]/10 text-[#FF9F0A] border border-[#FF9F0A]/30"
+                            }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isActive ? "bg-[#30D158]" : isExpired ? "bg-[#FF453A]" : "bg-[#FF9F0A]"
-                            }`}
+                            className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[#30D158]" : isExpired ? "bg-[#FF453A]" : "bg-[#FF9F0A]"
+                              }`}
                           />
                           {p.status || "ACTIVE"}
                         </span>

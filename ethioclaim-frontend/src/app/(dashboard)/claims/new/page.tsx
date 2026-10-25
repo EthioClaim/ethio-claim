@@ -217,13 +217,12 @@ function NewClaimForm() {
             key={s.id}
             type="button"
             onClick={() => s.id < step && setStep(s.id)}
-            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all select-none ${
-              step === s.id
+            className={`flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all select-none ${step === s.id
                 ? "bg-[#0A84FF] text-white shadow-sm"
                 : s.id < step
-                ? "bg-[#30D158]/20 text-[#30D158] hover:bg-[#30D158]/30 cursor-pointer"
-                : "bg-white/5 text-[var(--text-muted)] opacity-60 cursor-default"
-            }`}
+                  ? "bg-[#30D158]/20 text-[#30D158] hover:bg-[#30D158]/30 cursor-pointer"
+                  : "bg-white/5 text-[var(--text-muted)] opacity-60 cursor-default"
+              }`}
           >
             <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-black/30 font-bold">
               {s.id < step ? "✓" : s.id}
@@ -300,11 +299,10 @@ function NewClaimForm() {
             </div>
 
             {policyResult && (
-              <div className={`p-4 rounded-2xl border text-xs animate-fade-in ${
-                policyResult.found
+              <div className={`p-4 rounded-2xl border text-xs animate-fade-in ${policyResult.found
                   ? "bg-[#30D158]/[0.08] border-[#30D158]/30 text-white"
                   : "bg-[#FF9F0A]/[0.08] border-[#FF9F0A]/30 text-[#FFD60A]"
-              }`}>
+                }`}>
                 {policyResult.found ? (
                   <div className="flex items-center gap-2.5">
                     <span className="w-2 h-2 rounded-full bg-[#30D158]" />

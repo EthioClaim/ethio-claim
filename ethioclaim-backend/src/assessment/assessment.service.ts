@@ -4,32 +4,38 @@ import {
   ForbiddenException,
   ConflictException,
   BadRequestException,
-} from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+} from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
 import {
   CreateAssessmentDto,
   UpdateAssessmentDto,
   CreateDecisionDto,
-} from './dto/assessment.dto';
-import { Prisma } from '@prisma/client';
+} from "./dto/assessment.dto";
+import { Prisma } from "@prisma/client";
 
 @Injectable()
 export class AssessmentService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Enforces that an examiner can only assess, view, or decide on claims assigned to them.
    */
-  private async verifyExaminerAccess(claimId: string, userId: string, role: string) {
-    if (role === 'ADMIN') return;
-    if (role !== 'EXAMINER') {
-      throw new ForbiddenException('Only examiners and admins can assess or decide claims');
+  private async verifyExaminerAccess(
+    claimId: string,
+    userId: string,
+    role: string,
+  ) {
+    if (role === "ADMIN") return;
+    if (role !== "EXAMINER") {
+      throw new ForbiddenException(
+        "Only examiners and admins can assess or decide claims",
+      );
     }
 
     // 1. Check latest EXAMINER_ASSIGNED audit event
     const latestAssign = await this.prisma.auditEvent.findFirst({
-      where: { claimId, action: 'EXAMINER_ASSIGNED' },
-      orderBy: { createdAt: 'desc' },
+      where: { claimId, action: "EXAMINER_ASSIGNED" },
+      orderBy: { createdAt: "desc" },
     });
     if (latestAssign && latestAssign.details) {
       const details = latestAssign.details as any;
@@ -43,13 +49,20 @@ export class AssessmentService {
     });
     if (assessment && assessment.examinerId === userId) return;
 
-    throw new ForbiddenException('Access denied: this claim is not assigned to you');
+    throw new ForbiddenException(
+      "Access denied: this claim is not assigned to you",
+    );
   }
 
   /**
    * Create examiner assessment for a claim
    */
-  async create(claimId: string, dto: CreateAssessmentDto, examinerId: string, role: string) {
+  async create(
+    claimId: string,
+    dto: CreateAssessmentDto,
+    examinerId: string,
+    role: string,
+  ) {
     await this.verifyExaminerAccess(claimId, examinerId, role);
 
     const claim = await this.prisma.claim.findUnique({
@@ -62,7 +75,9 @@ export class AssessmentService {
     }
 
     if (claim.assessment) {
-      throw new ConflictException('An assessment already exists for this claim. Use PATCH to update.');
+      throw new ConflictException(
+        "An assessment already exists for this claim. Use PATCH to update.",
+      );
     }
 
     const assessment = await this.prisma.examinerAssessment.create({
@@ -70,27 +85,27 @@ export class AssessmentService {
         claimId,
         severity: dto.severity,
         estimatedLossEtb: new Prisma.Decimal(dto.estimatedLossEtb),
-        currency: dto.currency || 'ETB',
+        currency: dto.currency || "ETB",
         notes: dto.notes,
         examinerId,
       },
     });
 
     // Automatically transition status to ASSESSED upon assessment submission
-    if (!['APPROVED', 'REJECTED', 'CLOSED'].includes(claim.status)) {
+    if (!["APPROVED", "REJECTED", "CLOSED"].includes(claim.status)) {
       const previousStatus = claim.status;
       await this.prisma.claim.update({
         where: { id: claimId },
-        data: { status: 'ASSESSED' },
+        data: { status: "ASSESSED" },
       });
 
       await this.prisma.auditEvent.create({
         data: {
           claimId,
           actorId: examinerId,
-          action: 'STATUS_CHANGED',
+          action: "STATUS_CHANGED",
           summary: `Claim transitioned from ${previousStatus} to ASSESSED upon examiner assessment`,
-          details: { previousStatus, newStatus: 'ASSESSED' },
+          details: { previousStatus, newStatus: "ASSESSED" },
         },
       });
     }
@@ -100,7 +115,7 @@ export class AssessmentService {
       data: {
         claimId,
         actorId: examinerId,
-        action: 'ASSESSMENT_CREATED',
+        action: "ASSESSMENT_CREATED",
         summary: `Claim assessed with severity ${dto.severity} and estimated loss ${dto.estimatedLossEtb} ETB`,
         details: {
           assessmentId: assessment.id,
@@ -135,11 +150,11 @@ export class AssessmentService {
       throw new NotFoundException(`Claim with ID ${claimId} not found`);
     }
 
-    if (role === 'INTAKE_USER' && claim.createdById !== userId) {
-      throw new ForbiddenException('Access to claim assessment is restricted');
+    if (role === "INTAKE_USER" && claim.createdById !== userId) {
+      throw new ForbiddenException("Access to claim assessment is restricted");
     }
 
-    if (role === 'EXAMINER') {
+    if (role === "EXAMINER") {
       await this.verifyExaminerAccess(claimId, userId, role);
     }
 
@@ -163,7 +178,12 @@ export class AssessmentService {
   /**
    * Update assessment
    */
-  async update(claimId: string, dto: UpdateAssessmentDto, userId: string, role: string) {
+  async update(
+    claimId: string,
+    dto: UpdateAssessmentDto,
+    userId: string,
+    role: string,
+  ) {
     await this.verifyExaminerAccess(claimId, userId, role);
 
     const claim = await this.prisma.claim.findUnique({
@@ -176,12 +196,15 @@ export class AssessmentService {
     }
 
     if (!claim.assessment) {
-      throw new NotFoundException(`No assessment exists for claim ${claimId} to update`);
+      throw new NotFoundException(
+        `No assessment exists for claim ${claimId} to update`,
+      );
     }
 
     const updateData: any = {};
     if (dto.severity) updateData.severity = dto.severity;
-    if (dto.estimatedLossEtb) updateData.estimatedLossEtb = new Prisma.Decimal(dto.estimatedLossEtb);
+    if (dto.estimatedLossEtb)
+      updateData.estimatedLossEtb = new Prisma.Decimal(dto.estimatedLossEtb);
     if (dto.currency) updateData.currency = dto.currency;
     if (dto.notes !== undefined) updateData.notes = dto.notes;
 
@@ -194,7 +217,7 @@ export class AssessmentService {
       data: {
         claimId,
         actorId: userId,
-        action: 'ASSESSMENT_UPDATED',
+        action: "ASSESSMENT_UPDATED",
         summary: `Assessment updated: ${dto.severity || updated.severity}, ${dto.estimatedLossEtb || updated.estimatedLossEtb} ETB`,
         details: updateData,
       },
@@ -215,13 +238,18 @@ export class AssessmentService {
   /**
    * Create human examiner decision record
    */
-  async recordDecision(claimId: string, dto: CreateDecisionDto, actorId: string, role: string) {
+  async recordDecision(
+    claimId: string,
+    dto: CreateDecisionDto,
+    actorId: string,
+    role: string,
+  ) {
     await this.verifyExaminerAccess(claimId, actorId, role);
 
     const claim = await this.prisma.claim.findUnique({
       where: { id: claimId },
       include: {
-        auditEvents: { where: { action: 'AI_POTENTIAL_FRAUD_FLAGGED' } },
+        auditEvents: { where: { action: "AI_POTENTIAL_FRAUD_FLAGGED" } },
         evidence: { include: { analysis: true } },
       },
     });
@@ -235,7 +263,7 @@ export class AssessmentService {
     if (hasFraudFlag) {
       if (!dto.reason || dto.reason.trim().length < 5) {
         throw new BadRequestException(
-          'This claim has an AI potential fraud flag. Examiner must review the flag and provide a detailed reason for the final decision.',
+          "This claim has an AI potential fraud flag. Examiner must review the flag and provide a detailed reason for the final decision.",
         );
       }
 
@@ -243,7 +271,7 @@ export class AssessmentService {
         data: {
           claimId,
           actorId,
-          action: 'AI_FLAG_ACKNOWLEDGED',
+          action: "AI_FLAG_ACKNOWLEDGED",
           summary: `Examiner acknowledged AI fraud flag with decision: ${dto.decision}`,
           details: { decision: dto.decision, reason: dto.reason },
         },
@@ -252,14 +280,15 @@ export class AssessmentService {
 
     // Check if any evidence is still pending analysis
     const isAiPending = claim.evidence?.some(
-      (ev) => ev.analysisStatus === 'PENDING' || ev.analysis?.status === 'PENDING',
+      (ev) =>
+        ev.analysisStatus === "PENDING" || ev.analysis?.status === "PENDING",
     );
     if (isAiPending) {
       await this.prisma.auditEvent.create({
         data: {
           claimId,
           actorId,
-          action: 'AI_ANALYSIS_BYPASSED',
+          action: "AI_ANALYSIS_BYPASSED",
           summary: `Examiner finalized claim decision while AI analysis was pending: ${dto.decision}`,
           details: { decision: dto.decision, reason: dto.reason },
         },
@@ -277,12 +306,18 @@ export class AssessmentService {
 
     // Update claim status based on decision outcome
     let nextStatus = claim.status;
-    if (dto.decision === 'RECOMMEND_APPROVAL' || dto.decision === 'APPROVE') {
-      nextStatus = 'APPROVED';
-    } else if (dto.decision === 'RECOMMEND_REJECTION' || dto.decision === 'REJECT') {
-      nextStatus = 'REJECTED';
-    } else if (dto.decision === 'ADDITIONAL_DOCUMENTS_REQUIRED' || dto.decision === 'REQUEST_MORE_EVIDENCE') {
-      nextStatus = 'NEED_MORE_EVIDENCE';
+    if (dto.decision === "RECOMMEND_APPROVAL" || dto.decision === "APPROVE") {
+      nextStatus = "APPROVED";
+    } else if (
+      dto.decision === "RECOMMEND_REJECTION" ||
+      dto.decision === "REJECT"
+    ) {
+      nextStatus = "REJECTED";
+    } else if (
+      dto.decision === "ADDITIONAL_DOCUMENTS_REQUIRED" ||
+      dto.decision === "REQUEST_MORE_EVIDENCE"
+    ) {
+      nextStatus = "NEED_MORE_EVIDENCE";
     }
 
     if (nextStatus !== claim.status) {
@@ -294,9 +329,13 @@ export class AssessmentService {
         data: {
           claimId,
           actorId,
-          action: 'STATUS_CHANGED',
+          action: "STATUS_CHANGED",
           summary: `Claim status updated from ${claim.status} to ${nextStatus}`,
-          details: { from: claim.status, to: nextStatus, decision: dto.decision },
+          details: {
+            from: claim.status,
+            to: nextStatus,
+            decision: dto.decision,
+          },
         },
       });
     }
@@ -305,9 +344,13 @@ export class AssessmentService {
       data: {
         claimId,
         actorId,
-        action: 'DECISION_RECORDED',
+        action: "DECISION_RECORDED",
         summary: `Decision recorded: ${dto.decision}`,
-        details: { decisionId: decision.id, reason: dto.reason, outcomeStatus: nextStatus },
+        details: {
+          decisionId: decision.id,
+          reason: dto.reason,
+          outcomeStatus: nextStatus,
+        },
       },
     });
 

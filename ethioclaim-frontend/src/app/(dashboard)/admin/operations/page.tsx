@@ -163,11 +163,10 @@ export default function AnalysisOperationsPage() {
               setStatusFilter(tab.value);
               setPage(1);
             }}
-            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
-              statusFilter === tab.value
+            className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${statusFilter === tab.value
                 ? "bg-[#0A84FF] text-white"
                 : "text-[var(--text-muted)] hover:text-white hover:bg-white/5"
-            }`}
+              }`}
           >
             {tab.label}
           </button>
@@ -224,13 +223,12 @@ export default function AnalysisOperationsPage() {
                       </td>
                       <td className="py-3 px-4">
                         <span
-                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${
-                            isSuccess
+                          className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${isSuccess
                               ? "bg-[#30D158]/10 text-[#30D158] border-[#30D158]/25"
                               : isFailed
-                              ? "bg-[#FF453A]/10 text-[#FF453A] border-[#FF453A]/25"
-                              : "bg-[#FF9F0A]/10 text-[#FF9F0A] border-[#FF9F0A]/25"
-                          }`}
+                                ? "bg-[#FF453A]/10 text-[#FF453A] border-[#FF453A]/25"
+                                : "bg-[#FF9F0A]/10 text-[#FF9F0A] border-[#FF9F0A]/25"
+                            }`}
                         >
                           {item.status}
                         </span>

@@ -93,8 +93,8 @@ export function SimilarityResults({ matches }: { matches: SimilarityMatch[] }) {
               m.score !== undefined
                 ? `${Math.round(m.score * 100)}% match`
                 : m.distance !== undefined
-                ? `Distance: ${m.distance}`
-                : "Matched";
+                  ? `Distance: ${m.distance}`
+                  : "Matched";
 
             return (
               <div

@@ -19,7 +19,7 @@ function normalizePolicyNumber(pn: string): string {
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   // ── Users Management ────────────────────────────────────────────────────────
   async findAllUsers(query: {
@@ -80,11 +80,14 @@ export class AdminService {
     });
 
     if (existing) {
-      throw new ConflictException(`User with email ${dto.email} already exists`);
+      throw new ConflictException(
+        `User with email ${dto.email} already exists`,
+      );
     }
 
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const name = dto.name || dto.displayName || dto.username || dto.email.split('@')[0];
+    const name =
+      dto.name || dto.displayName || dto.username || dto.email.split("@")[0];
 
     const user = await this.prisma.user.create({
       data: {
@@ -108,7 +111,7 @@ export class AdminService {
     await this.prisma.auditEvent.create({
       data: {
         actorId: adminId,
-        action: 'ADMIN_USER_CREATED',
+        action: "ADMIN_USER_CREATED",
         summary: `Admin created user ${user.email} with role ${user.role}`,
         details: { userId: user.id, role: user.role },
       },
@@ -117,8 +120,8 @@ export class AdminService {
     return {
       ...user,
       displayName: user.name,
-      username: user.email.split('@')[0],
-      status: user.active ? 'ACTIVE' : 'INACTIVE',
+      username: user.email.split("@")[0],
+      status: user.active ? "ACTIVE" : "INACTIVE",
     };
   }
 
@@ -136,7 +139,7 @@ export class AdminService {
     if (name !== undefined) updateData.name = name;
     if (dto.role !== undefined) updateData.role = dto.role;
     if (dto.active !== undefined) updateData.active = dto.active;
-    if (dto.status !== undefined) updateData.active = dto.status === 'ACTIVE';
+    if (dto.status !== undefined) updateData.active = dto.status === "ACTIVE";
     if (dto.password && dto.password.trim().length > 0) {
       updateData.passwordHash = await bcrypt.hash(dto.password, 10);
     }
@@ -158,7 +161,7 @@ export class AdminService {
     await this.prisma.auditEvent.create({
       data: {
         actorId: adminId,
-        action: 'ADMIN_USER_UPDATED',
+        action: "ADMIN_USER_UPDATED",
         summary: `Admin updated user ${user.email}`,
         details: updateData,
       },
@@ -167,8 +170,8 @@ export class AdminService {
     return {
       ...updated,
       displayName: updated.name,
-      username: updated.email.split('@')[0],
-      status: updated.active ? 'ACTIVE' : 'INACTIVE',
+      username: updated.email.split("@")[0],
+      status: updated.active ? "ACTIVE" : "INACTIVE",
     };
   }
 
@@ -187,9 +190,9 @@ export class AdminService {
     if (query.status) where.status = query.status;
     if (query.q) {
       where.OR = [
-        { policyNumber: { contains: query.q, mode: 'insensitive' } },
-        { holderName: { contains: query.q, mode: 'insensitive' } },
-        { vehicleRegistration: { contains: query.q, mode: 'insensitive' } },
+        { policyNumber: { contains: query.q, mode: "insensitive" } },
+        { holderName: { contains: query.q, mode: "insensitive" } },
+        { vehicleRegistration: { contains: query.q, mode: "insensitive" } },
       ];
     }
 
@@ -198,7 +201,7 @@ export class AdminService {
         where,
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
       }),
       this.prisma.policy.count({ where }),
     ]);
@@ -231,7 +234,10 @@ export class AdminService {
 
     const existing = await this.prisma.policy.findFirst({
       where: {
-        OR: [{ policyNumber: dto.policyNumber }, { normalizedPolicyNumber: normalized }],
+        OR: [
+          { policyNumber: dto.policyNumber },
+          { normalizedPolicyNumber: normalized },
+        ],
       },
     });
 
@@ -247,18 +253,20 @@ export class AdminService {
         vehicleRegistration: dto.vehicleRegistration,
         vehicleMake: dto.vehicleMake,
         vehicleModel: dto.vehicleModel,
-        insurer: dto.insurer || 'Ethio-Insurance Corp',
-        status: (dto.status as any) || 'ACTIVE',
+        insurer: dto.insurer || "Ethio-Insurance Corp",
+        status: (dto.status as any) || "ACTIVE",
         validFrom: dto.validFrom ? new Date(dto.validFrom) : null,
         validTo: dto.validTo ? new Date(dto.validTo) : null,
-        coverageAmount: dto.coverageAmount ? new Prisma.Decimal(dto.coverageAmount) : null,
+        coverageAmount: dto.coverageAmount
+          ? new Prisma.Decimal(dto.coverageAmount)
+          : null,
       },
     });
 
     await this.prisma.auditEvent.create({
       data: {
         actorId: adminId,
-        action: 'ADMIN_POLICY_CREATED',
+        action: "ADMIN_POLICY_CREATED",
         summary: `Admin created policy ${policy.policyNumber}`,
         details: { policyId: policy.id },
       },
@@ -293,15 +301,21 @@ export class AdminService {
 
     const updateData: any = {};
     if (dto.holderName !== undefined) updateData.holderName = dto.holderName;
-    if (dto.vehicleRegistration !== undefined) updateData.vehicleRegistration = dto.vehicleRegistration;
+    if (dto.vehicleRegistration !== undefined)
+      updateData.vehicleRegistration = dto.vehicleRegistration;
     if (dto.vehicleMake !== undefined) updateData.vehicleMake = dto.vehicleMake;
-    if (dto.vehicleModel !== undefined) updateData.vehicleModel = dto.vehicleModel;
+    if (dto.vehicleModel !== undefined)
+      updateData.vehicleModel = dto.vehicleModel;
     if (dto.insurer !== undefined) updateData.insurer = dto.insurer;
     if (dto.status !== undefined) updateData.status = dto.status;
-    if (dto.validFrom !== undefined) updateData.validFrom = dto.validFrom ? new Date(dto.validFrom) : null;
-    if (dto.validTo !== undefined) updateData.validTo = dto.validTo ? new Date(dto.validTo) : null;
+    if (dto.validFrom !== undefined)
+      updateData.validFrom = dto.validFrom ? new Date(dto.validFrom) : null;
+    if (dto.validTo !== undefined)
+      updateData.validTo = dto.validTo ? new Date(dto.validTo) : null;
     if (dto.coverageAmount !== undefined) {
-      updateData.coverageAmount = dto.coverageAmount ? new Prisma.Decimal(dto.coverageAmount) : null;
+      updateData.coverageAmount = dto.coverageAmount
+        ? new Prisma.Decimal(dto.coverageAmount)
+        : null;
     }
 
     const updated = await this.prisma.policy.update({
@@ -312,7 +326,7 @@ export class AdminService {
     await this.prisma.auditEvent.create({
       data: {
         actorId: adminId,
-        action: 'ADMIN_POLICY_UPDATED',
+        action: "ADMIN_POLICY_UPDATED",
         summary: `Admin updated policy ${policy.policyNumber}`,
         details: updateData,
       },
@@ -363,8 +377,8 @@ export class AdminService {
     return {
       ...user,
       displayName: user.name,
-      username: user.email.split('@')[0],
-      status: user.active ? 'ACTIVE' : 'INACTIVE',
+      username: user.email.split("@")[0],
+      status: user.active ? "ACTIVE" : "INACTIVE",
     };
   }
 
@@ -387,7 +401,7 @@ export class AdminService {
     await this.prisma.auditEvent.create({
       data: {
         actorId: adminId,
-        action: 'ADMIN_PASSWORD_RESET',
+        action: "ADMIN_PASSWORD_RESET",
         summary: `Admin reset password for user ${user.email}`,
         details: { targetUserId: user.id },
       },
@@ -405,7 +419,7 @@ export class AdminService {
       include: {
         claims: {
           take: 10,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           select: {
             id: true,
             claimNumber: true,
@@ -466,8 +480,8 @@ export class AdminService {
 
     if (query.q) {
       where.OR = [
-        { summary: { contains: query.q, mode: 'insensitive' } },
-        { action: { contains: query.q, mode: 'insensitive' } },
+        { summary: { contains: query.q, mode: "insensitive" } },
+        { action: { contains: query.q, mode: "insensitive" } },
       ];
     }
 
@@ -476,7 +490,7 @@ export class AdminService {
         where,
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           actor: {
             select: {
@@ -525,7 +539,7 @@ export class AdminService {
         where,
         skip,
         take: pageSize,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           evidence: {
             select: {
@@ -550,7 +564,7 @@ export class AdminService {
       }),
       this.prisma.damageAnalysis.count({ where }),
       this.prisma.damageAnalysis.groupBy({
-        by: ['status'],
+        by: ["status"],
         _count: { _all: true },
       }),
     ]);

@@ -9,26 +9,26 @@ import {
   UseGuards,
   HttpStatus,
   HttpCode,
-} from '@nestjs/common';
-import { AssessmentService } from './assessment.service';
+} from "@nestjs/common";
+import { AssessmentService } from "./assessment.service";
 import {
   CreateAssessmentDto,
   UpdateAssessmentDto,
   CreateDecisionDto,
-} from './dto/assessment.dto';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { RolesGuard, Roles } from '../auth/roles.guard';
+} from "./dto/assessment.dto";
+import { JwtAuthGuard } from "../auth/jwt-auth.guard";
+import { RolesGuard, Roles } from "../auth/roles.guard";
 
-@Controller('claims/:claimId')
+@Controller("claims/:claimId")
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class AssessmentController {
-  constructor(private readonly assessmentService: AssessmentService) {}
+  constructor(private readonly assessmentService: AssessmentService) { }
 
-  @Post('assessment')
-  @Roles('EXAMINER', 'ADMIN')
+  @Post("assessment")
+  @Roles("EXAMINER", "ADMIN")
   @HttpCode(HttpStatus.CREATED)
   create(
-    @Param('claimId') claimId: string,
+    @Param("claimId") claimId: string,
     @Body() dto: CreateAssessmentDto,
     @Req() req: any,
   ) {
@@ -40,9 +40,9 @@ export class AssessmentController {
     );
   }
 
-  @Get('assessment')
-  @Roles('EXAMINER', 'ADMIN', 'INTAKE_USER')
-  findByClaim(@Param('claimId') claimId: string, @Req() req: any) {
+  @Get("assessment")
+  @Roles("EXAMINER", "ADMIN", "INTAKE_USER")
+  findByClaim(@Param("claimId") claimId: string, @Req() req: any) {
     return this.assessmentService.findByClaimId(
       claimId,
       req.user.id,
@@ -50,10 +50,10 @@ export class AssessmentController {
     );
   }
 
-  @Patch('assessment')
-  @Roles('EXAMINER', 'ADMIN')
+  @Patch("assessment")
+  @Roles("EXAMINER", "ADMIN")
   update(
-    @Param('claimId') claimId: string,
+    @Param("claimId") claimId: string,
     @Body() dto: UpdateAssessmentDto,
     @Req() req: any,
   ) {
@@ -65,11 +65,11 @@ export class AssessmentController {
     );
   }
 
-  @Post('decision')
-  @Roles('EXAMINER', 'ADMIN')
+  @Post("decision")
+  @Roles("EXAMINER", "ADMIN")
   @HttpCode(HttpStatus.CREATED)
   recordDecision(
-    @Param('claimId') claimId: string,
+    @Param("claimId") claimId: string,
     @Body() dto: CreateDecisionDto,
     @Req() req: any,
   ) {

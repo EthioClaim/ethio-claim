@@ -76,7 +76,7 @@ function ClaimsListContent() {
           setAssignedToMe(true);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   const isExaminer = currentUser?.role === "EXAMINER";
@@ -150,8 +150,8 @@ function ClaimsListContent() {
             {loading
               ? "Refreshing claim records…"
               : isExaminer
-              ? `${total} claims allocated for examiner assessment & loss estimation`
-              : `${total} registered motor claim records in active workflow`}
+                ? `${total} claims allocated for examiner assessment & loss estimation`
+                : `${total} registered motor claim records in active workflow`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -193,11 +193,10 @@ function ClaimsListContent() {
                   setSelectedStatus(chip.value);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 select-none whitespace-nowrap ${
-                  isSelected
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 select-none whitespace-nowrap ${isSelected
                     ? "bg-[#0A84FF] text-white shadow-xs font-semibold"
                     : "bg-white/[0.04] text-[var(--text-secondary)] hover:bg-white/[0.08] hover:text-white border border-white/6"
-                }`}
+                  }`}
               >
                 {chip.label}
               </button>
@@ -276,18 +275,16 @@ function ClaimsListContent() {
           {/* Assigned to me toggle */}
           <label className="flex items-center gap-2.5 text-xs text-[var(--text-secondary)] cursor-pointer select-none px-2 h-11">
             <div
-              className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${
-                assignedToMe ? "bg-[#0A84FF]" : "bg-white/15"
-              }`}
+              className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${assignedToMe ? "bg-[#0A84FF]" : "bg-white/15"
+                }`}
               onClick={() => {
                 setAssignedToMe(!assignedToMe);
                 setPage(1);
               }}
             >
               <div
-                className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${
-                  assignedToMe ? "translate-x-4" : "translate-x-0"
-                }`}
+                className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${assignedToMe ? "translate-x-4" : "translate-x-0"
+                  }`}
               />
             </div>
             <span className="font-medium text-white">Assigned to me</span>
@@ -349,8 +346,8 @@ function ClaimsListContent() {
               {q || selectedStatus || from || to
                 ? "No claims match your filter criteria. Try resetting search or status filters."
                 : isExaminer
-                ? "No motor insurance claims currently allocated to your adjudication queue."
-                : "No motor insurance claims registered. Start a new intake to begin."}
+                  ? "No motor insurance claims currently allocated to your adjudication queue."
+                  : "No motor insurance claims registered. Start a new intake to begin."}
             </p>
             {!isExaminer && (
               <Link href="/claims/new" className="btn btn-primary text-xs inline-flex mt-2">
@@ -432,20 +429,20 @@ function ClaimsListContent() {
                             (claim.evidence as any[])?.some(
                               (e) => e.matches?.length > 0 || e.analysis?.riskAssessment?.label === "POTENTIAL_FRAUD"
                             )) && (
-                            <span className="badge text-[9px] bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
-                              ⚠️ Fraud Review
-                            </span>
-                          )}
+                              <span className="badge text-[9px] bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
+                                ⚠️ Fraud Review
+                              </span>
+                            )}
                           {((claim as any).noDamageDetected ||
                             (claim.evidence as any[])?.some(
                               (e) =>
                                 (e.analysis as any)?.detections?.length === 0 &&
                                 (e.analysis as any)?.status === "COMPLETED"
                             )) && (
-                            <span className="badge text-[9px] bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40">
-                              🔍 No Damage Detected
-                            </span>
-                          )}
+                              <span className="badge text-[9px] bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40">
+                                🔍 No Damage Detected
+                              </span>
+                            )}
                         </div>
                       </td>
                       <td className="px-5 py-4 text-right">

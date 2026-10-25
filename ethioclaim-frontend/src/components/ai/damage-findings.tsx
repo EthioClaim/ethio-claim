@@ -11,8 +11,8 @@ function ConfidenceBar({ value }: { value: number }) {
     value > 0.85
       ? "rgba(48, 209, 88, 0.2)"
       : value > 0.7
-      ? "rgba(255, 159, 10, 0.2)"
-      : "rgba(100, 210, 255, 0.2)";
+        ? "rgba(255, 159, 10, 0.2)"
+        : "rgba(100, 210, 255, 0.2)";
 
   return (
     <div className="flex items-center gap-2.5 flex-1 min-w-[120px]">
@@ -111,8 +111,8 @@ export function DamageFindings({
                   {f.bbox
                     ? `[${f.bbox.map((n) => Math.round(n)).join(", ")}]`
                     : f.box
-                    ? `[${f.box.map((n) => Math.round(n)).join(", ")}]`
-                    : "Coordinates logged"}
+                      ? `[${f.box.map((n) => Math.round(n)).join(", ")}]`
+                      : "Coordinates logged"}
                 </span>
               </div>
               <ConfidenceBar value={f.confidence ?? 0} />

@@ -59,8 +59,8 @@ export default function DashboardPage() {
               {role === "ADMIN"
                 ? "System Administration Console"
                 : role === "EXAMINER"
-                ? "Examiner Adjudication Workspace"
-                : "Motor Claims Intake Portal"}
+                  ? "Examiner Adjudication Workspace"
+                  : "Motor Claims Intake Portal"}
             </span>
             <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-[var(--text-muted)] font-mono">
               Staff: {user?.displayName || user?.name || user?.username || "Authenticated"}
@@ -70,15 +70,15 @@ export default function DashboardPage() {
             {role === "ADMIN"
               ? "Platform Telemetry & Governance"
               : role === "EXAMINER"
-              ? "Active Adjudication & Triage Queue"
-              : "Motor Claims Intake & Tracking"}
+                ? "Active Adjudication & Triage Queue"
+                : "Motor Claims Intake & Tracking"}
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-secondary)] max-w-2xl leading-relaxed">
             {role === "ADMIN"
               ? "System telemetry, examiner assignment balance, insurer policy registry oversight, and tamper-evident audit logs."
               : role === "EXAMINER"
-              ? "Inspect automated damage localizations, evaluate cross-claim similarity signals, and record binding adjudication determinations."
-              : "Register motor claims against verified insurer policies, upload evidence photos, and track adjudication progress in real time."}
+                ? "Inspect automated damage localizations, evaluate cross-claim similarity signals, and record binding adjudication determinations."
+                : "Register motor claims against verified insurer policies, upload evidence photos, and track adjudication progress in real time."}
           </p>
         </div>
 

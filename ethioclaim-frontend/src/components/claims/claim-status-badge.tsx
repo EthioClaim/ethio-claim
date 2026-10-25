@@ -25,12 +25,12 @@ export function RiskBadge({ risk }: { risk: RiskLevel }) {
 
 export function AIProcessingBadge() {
   return (
-    <span 
-      className="badge shadow-xs backdrop-blur-md px-2.5 py-1 text-[11px] font-semibold tracking-tight" 
-      style={{ 
-        background: "rgba(100, 210, 255, 0.12)", 
-        color: "#64D2FF", 
-        border: "1px solid rgba(100, 210, 255, 0.3)" 
+    <span
+      className="badge shadow-xs backdrop-blur-md px-2.5 py-1 text-[11px] font-semibold tracking-tight"
+      style={{
+        background: "rgba(100, 210, 255, 0.12)",
+        color: "#64D2FF",
+        border: "1px solid rgba(100, 210, 255, 0.3)"
       }}
     >
       <span className="w-1.5 h-1.5 rounded-full mr-1 animate-pulse bg-[#64D2FF] inline-block flex-shrink-0" />

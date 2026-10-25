@@ -6,12 +6,12 @@ import {
   IsBoolean,
   IsDateString,
   MinLength,
-} from 'class-validator';
+} from "class-validator";
 
 export enum RoleEnum {
-  INTAKE_USER = 'INTAKE_USER',
-  EXAMINER = 'EXAMINER',
-  ADMIN = 'ADMIN',
+  INTAKE_USER = "INTAKE_USER",
+  EXAMINER = "EXAMINER",
+  ADMIN = "ADMIN",
 }
 
 export class CreateUserDto {
