@@ -26,6 +26,7 @@ import type {
   Claim,
   ClaimStatus,
   ExaminerAssessment,
+  ExaminerAssessmentPayload,
   AssessmentSeverity,
   ClaimTimelineEvent,
   ExaminerDecisionType,
@@ -99,7 +100,6 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     setLoading(true);
     setError("");
     try {
-      // Load current user profile from localStorage or API
       if (typeof window !== "undefined") {
         try {
           const raw = localStorage.getItem("ethioclaim_user");
@@ -151,28 +151,27 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     loadData();
   }, [loadData]);
 
-  async function handleOpenAssignModal() {
-    setShowAssignModal(true);
+  function notify(msg: string) {
+    setSuccessMsg(msg);
+    setTimeout(() => setSuccessMsg(""), 4000);
+  }
+
+  async function handleStatusChange(newStatus: ClaimStatus) {
+    if (!claim) return;
+    setUpdatingStatus(true);
+    setError("");
     try {
-      const users = await fetchAdminUsers();
-      const exList = (users || []).filter((u: AdminUser) => u.role === "EXAMINER");
-      setExaminersList(exList.length > 0 ? exList : (users || []));
-      if (exList.length > 0 && !selectedExaminerId) {
-        setSelectedExaminerId(exList[0].id);
-      } else if (users && users.length > 0 && !selectedExaminerId) {
-        setSelectedExaminerId(users[0].id);
-      }
-    } catch {
-      // ignore
+      const updated = await updateClaimStatus(claim.id, newStatus);
+      setClaim(updated);
+      notify(`Status transitioned to ${newStatus}`);
+      fetchClaimTimeline(claimId).then(setTimeline);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Failed to update status");
+    } finally {
+      setUpdatingStatus(false);
     }
   }
 
-  function notify(msg: string) {
-    setSuccessMsg(msg);
-    setTimeout(() => setSuccessMsg(""), 5000);
-  }
-
-  // Handle Submit Claim (Intake User)
   async function handleSubmitClaimConfirm(e: React.FormEvent) {
     e.preventDefault();
     if (!claim) return;
@@ -182,7 +181,8 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       const updated = await submitClaim(claim.id, submitNotes.trim() || undefined);
       setClaim(updated);
       setShowSubmitModal(false);
-      notify("Claim submitted successfully for examiner review!");
+      setSubmitNotes("");
+      notify("Claim draft submitted successfully into adjudication queue");
       fetchClaimTimeline(claimId).then(setTimeline);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to submit claim");
@@ -191,17 +191,29 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     }
   }
 
-  // Handle Assign Examiner (Admin)
+  async function handleOpenAssignModal() {
+    setShowAssignModal(true);
+    try {
+      const allUsers = await fetchAdminUsers();
+      const examiners = allUsers.filter((u) => u.role === "EXAMINER");
+      setExaminersList(examiners.length > 0 ? examiners : allUsers);
+    } catch {
+      // ignore
+    }
+  }
+
   async function handleAssignExaminerSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!claim || !selectedExaminerId) return;
     setAssigningExaminer(true);
     setError("");
     try {
-      await assignExaminer(claim.id, selectedExaminerId, assignNote.trim() || undefined);
+      const updated = await assignExaminer(claim.id, selectedExaminerId, assignNote.trim() || undefined);
+      setClaim(updated);
       setShowAssignModal(false);
-      notify("Examiner assigned successfully!");
-      loadData();
+      setAssignNote("");
+      notify("Examiner assigned successfully");
+      fetchClaimTimeline(claimId).then(setTimeline);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to assign examiner");
     } finally {
@@ -209,17 +221,18 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     }
   }
 
-  // Handle Close Claim (Admin)
   async function handleCloseClaimSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!claim) return;
     setClosingClaim(true);
     setError("");
     try {
-      await closeClaim(claim.id, closeReason, closeNotes.trim() || undefined);
+      const updated = await closeClaim(claim.id, closeReason, closeNotes.trim() || undefined);
+      setClaim(updated);
       setShowCloseModal(false);
-      notify("Claim closed successfully!");
-      loadData();
+      setCloseNotes("");
+      notify(`Claim closed successfully (${closeReason})`);
+      fetchClaimTimeline(claimId).then(setTimeline);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to close claim");
     } finally {
@@ -227,52 +240,35 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     }
   }
 
-  // Handle Transition
-  async function handleStatusChange(newStatus: ClaimStatus) {
-    if (!claim) return;
-    setUpdatingStatus(true);
-    try {
-      const updated = await updateClaimStatus(claim.id, newStatus);
-      setClaim(updated);
-      notify(`Claim status transitioned to ${newStatus.replace(/_/g, " ")}`);
-      fetchClaimTimeline(claimId).then(setTimeline);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Status transition failed");
-    } finally {
-      setUpdatingStatus(false);
-    }
-  }
-
   async function handleSaveAssessment(e: React.FormEvent) {
     e.preventDefault();
     if (!claim) return;
+
+    const lossNum = parseFloat(estimatedLoss);
+    if (isNaN(lossNum) || lossNum < 0) {
+      setError("Please enter a valid estimated loss in ETB");
+      return;
+    }
+
     setSubmittingAssessment(true);
     setError("");
 
     try {
-      if (assessment?.id) {
-        const updated = await updateAssessment(claim.id, {
-          severity,
-          estimatedLossEtb: parseFloat(estimatedLoss) || 0,
-          currency: "ETB",
-          notes: assessmentNotes.trim(),
-        });
-        setAssessment(updated);
-        notify("Assessment updated successfully");
+      const payload: ExaminerAssessmentPayload = {
+        severity,
+        estimatedLossEtb: lossNum,
+        notes: assessmentNotes.trim() || "No additional examiner assessment notes recorded",
+      };
+
+      let res: ExaminerAssessment;
+      if (assessment && assessment.id) {
+        res = await updateAssessment(claim.id, payload);
       } else {
-        const saved = await createAssessment(claim.id, {
-          severity,
-          estimatedLossEtb: parseFloat(estimatedLoss) || 0,
-          currency: "ETB",
-          notes: assessmentNotes.trim(),
-        });
-        setAssessment(saved);
-        notify("Examiner assessment recorded");
-        if (claim.status !== "ASSESSED" && claim.status !== "CLOSED") {
-          const upd = await updateClaimStatus(claim.id, "ASSESSED");
-          setClaim(upd);
-        }
+        res = await createAssessment(claim.id, payload);
       }
+      setAssessment(res);
+      notify("Assessment recorded successfully");
+      fetchClaim(claimId).then(setClaim);
       fetchClaimTimeline(claimId).then(setTimeline);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to save assessment");
@@ -284,6 +280,12 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
   async function handleRecordDecision(e: React.FormEvent) {
     e.preventDefault();
     if (!claim) return;
+
+    if (!decisionNotes.trim()) {
+      setError("Please provide justification / notes for this decision");
+      return;
+    }
+
     setSubmittingDecision(true);
     setError("");
 
@@ -291,11 +293,12 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       await recordClaimDecision(claim.id, {
         decision: decisionType,
         notes: decisionNotes.trim(),
-        estimatedLossEtb: parseFloat(estimatedLoss) || undefined,
       });
-      notify(`Examiner decision recorded: ${decisionType.replace(/_/g, " ")}`);
+      notify(`Examiner decision recorded: ${decisionType}`);
       setDecisionNotes("");
-      loadData();
+      setFraudAcknowledged(false);
+      fetchClaim(claimId).then(setClaim);
+      fetchClaimTimeline(claimId).then(setTimeline);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Failed to record decision");
     } finally {
@@ -397,13 +400,11 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
   const evidenceList = claim.evidence || [];
   const assignedExaminerInfo = (claim as any).assignedExaminer || (claim as any).assessment?.examiner;
 
-  // Resolve AI risk assessment from top-level or child evidence analyses
   const aiRiskAssessment =
     claim.aiRiskAssessment ||
     (evidenceList as any[]).find((e) => e.analysis?.detections?.riskAssessment?.label === "POTENTIAL_FRAUD")?.analysis?.detections?.riskAssessment ||
     (evidenceList as any[]).find((e) => e.riskAssessment?.label === "POTENTIAL_FRAUD")?.riskAssessment;
 
-  // Allowed transitions based on user role
   const allowedTransitions = isExaminer
     ? [
         { status: "UNDER_REVIEW" as ClaimStatus, label: "Under Review" },
@@ -423,11 +424,12 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
     : [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
-        <Link href="/claims" className="hover:text-white transition-colors">
-          Claims
+        <Link href="/claims" className="hover:text-white transition-colors flex items-center gap-1">
+          <span>←</span>
+          <span>Claims</span>
         </Link>
         <span className="text-white/20">/</span>
         <span className="text-white font-mono font-semibold">{claim.claimNumber || claim.id}</span>
@@ -435,86 +437,44 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
       {/* AI Potential Fraud Warning Banner */}
       {aiRiskAssessment?.label === "POTENTIAL_FRAUD" && (
-        <div className="card apple-glass p-5 border-l-4 border-l-[#FF453A] bg-gradient-to-r from-[#FF453A]/15 to-transparent space-y-3">
+        <div className="card apple-glass p-5 border-l-4 border-l-[#FF453A] bg-gradient-to-r from-[#FF453A]/15 to-transparent space-y-3 shadow-md">
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-2 text-sm font-bold text-[#FF453A]">
-              <svg className="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <svg className="w-5 h-5 flex-shrink-0 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
-              <span>POTENTIAL FRAUD FLAGGED BY AI VISION SCREENING</span>
+              <span>POTENTIAL FRAUD FLAGGED BY AI COMPUTER VISION</span>
             </div>
-            <span className="badge text-[10px] bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/30 font-mono">
+            <span className="badge text-[10px] bg-[#FF453A]/25 text-[#FF6961] border border-[#FF453A]/40 font-mono font-bold">
               REQUIRES MANUAL REVIEW
             </span>
           </div>
-          <div className="text-xs text-[var(--text-secondary)] space-y-1.5 pl-7">
-            <p className="font-semibold text-white">Screening Reasons:</p>
-            <ul className="list-disc list-inside space-y-1 text-[var(--text-muted)]">
-              {aiRiskAssessment.reasons?.map((r: string, idx: number) => (
-                <li key={idx}>{r}</li>
-              )) || <li>Duplicate evidence or image signature matched against an existing claim.</li>}
-            </ul>
-            {Boolean(aiRiskAssessment.matchedClaimIds?.length || aiRiskAssessment.matchedEvidenceIds?.length) && (
-              <div className="flex flex-wrap gap-2 pt-1 font-mono text-[11px]">
-                {aiRiskAssessment.matchedClaimIds?.map((cid: string) => (
-                  <Link key={cid} href={`/claims/${cid}`} className="text-[#64D2FF] hover:underline bg-white/5 px-2 py-0.5 rounded">
-                    Matched Claim: {cid.slice(0, 8)}…
-                  </Link>
-                ))}
-              </div>
-            )}
-            <p className="text-[11px] text-[var(--text-muted)] italic pt-1">
-              Disclaimer: AI Vision screening is an assistive detection aid. Examiners must manually inspect matching evidence photos before finalizing adjudication.
+          <div className="text-xs text-[var(--text-secondary)] space-y-1.5 pl-7 leading-relaxed">
+            <p>
+              Automated computer vision or perceptual hashing detected candidate cross-claim matches or duplicate evidence.
+              Please inspect the photographic evidence gallery before recording a final adjudication recommendation.
             </p>
           </div>
         </div>
       )}
 
-      {/* Role-Specific Alert Banners */}
-      {isIntakeUser && claim.status === "DRAFT" && (
-        <div className="card apple-glass p-5 border-l-4 border-l-[#0A84FF] flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-[#0A84FF]/10 to-transparent">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-bold text-white">
-              <span className="w-2 h-2 rounded-full bg-[#0A84FF] animate-ping" />
-              <span>Draft Claim — Not Submitted</span>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Complete your incident details, upload vehicle photos, and submit for claims examination.
-            </p>
+      {/* Policy Unverified Alert Banner */}
+      {claim.status === "POLICY_UNVERIFIED" && (
+        <div className="card apple-glass p-4 border-l-4 border-l-[#FF9F0A] bg-gradient-to-r from-[#FF9F0A]/10 to-transparent flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5 text-xs text-[#FFD60A]">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>Policy registration number could not be verified in the primary database during intake.</span>
           </div>
-          <button
-            onClick={() => setShowSubmitModal(true)}
-            className="btn btn-primary text-xs py-2.5 px-5 font-semibold flex items-center gap-2 shadow-lg shadow-[#0A84FF]/25"
-          >
-            <span>Submit Claim for Review →</span>
-          </button>
-        </div>
-      )}
-
-      {claim.status === "NEED_MORE_EVIDENCE" && (
-        <div className="card apple-glass p-5 border-l-4 border-l-[#FF9F0A] flex flex-wrap items-center justify-between gap-4 bg-gradient-to-r from-[#FF9F0A]/10 to-transparent">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-bold text-[#FF9F0A]">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span>Examiner Requested Additional Evidence</span>
-            </div>
-            <p className="text-xs text-[var(--text-secondary)]">
-              The claims examiner has paused review pending submission of additional photos or garage documents.
-            </p>
-          </div>
-          <Link
-            href={`/claims/${claim.id}/evidence`}
-            className="btn btn-primary text-xs py-2 px-4 bg-[#FF9F0A] hover:bg-[#FF9F0A]/90 text-black font-semibold flex items-center gap-2"
-          >
-            <span>Upload Requested Photos →</span>
+          <Link href="/policies/verify" className="btn btn-secondary text-[11px] py-1 px-3 flex-shrink-0">
+            Verify in Registry →
           </Link>
         </div>
       )}
 
       {/* Header Showcase Card */}
-      <div className="card apple-glass p-6 md:p-8 space-y-6">
+      <div className="card apple-glass p-6 md:p-8 space-y-6 shadow-md">
         <div className="flex flex-wrap items-start justify-between gap-5">
           <div className="space-y-1.5">
             <div className="flex flex-wrap items-center gap-3">
@@ -523,7 +483,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
               </h2>
               <ClaimStatusBadge status={claim.status} />
               {assignedExaminerInfo && (
-                <span className="badge badge-secondary text-[11px] font-medium border border-white/10 flex items-center gap-1.5">
+                <span className="badge text-[11px] font-medium bg-white/[0.06] text-white/90 border border-white/10 flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF]" />
                   <span>Examiner: {assignedExaminerInfo.name || assignedExaminerInfo.email || "Assigned"}</span>
                 </span>
@@ -582,7 +542,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
               </>
             )}
 
-            {/* Edit details (allowed for Intake when Draft, or Examiner/Admin) */}
+            {/* Edit details */}
             {(claim.status === "DRAFT" || isExaminer || isAdmin) && (
               <button
                 onClick={() => setShowEditModal(true)}
@@ -601,7 +561,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
               className="btn btn-primary text-xs font-semibold py-2 px-4 shadow-sm flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span>Evidence Gallery ({evidenceList.length || claim.evidenceCount || 0})</span>
             </Link>
@@ -642,45 +602,47 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
       {/* Notifications */}
       {successMsg && (
-        <div className="p-4 rounded-xl bg-[#30D158]/10 border border-[#30D158]/30 text-xs text-[#30D158] flex items-center gap-2">
+        <div className="p-4 rounded-2xl bg-[#30D158]/12 border border-[#30D158]/30 text-xs text-[#30D158] flex items-center gap-2 animate-fade-in">
           <span>✓</span>
-          <span>{successMsg}</span>
+          <span className="font-semibold">{successMsg}</span>
         </div>
       )}
       {error && (
-        <div className="p-4 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center justify-between">
+        <div className="p-4 rounded-2xl bg-[#FF453A]/12 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center justify-between animate-fade-in">
           <span>{error}</span>
-          <button onClick={() => setError("")} className="underline">Dismiss</button>
+          <button onClick={() => setError("")} className="underline font-semibold ml-2">Dismiss</button>
         </div>
       )}
 
-      {/* Navigation Tabs */}
-      <div className="tabs">
-        <button
-          className={`tab-btn ${activeTab === "overview" ? "active" : ""}`}
-          onClick={() => setActiveTab("overview")}
-        >
-          Overview & Details
-        </button>
-        {(isExaminer || isAdmin) && (
+      {/* Navigation Tabs (Apple Segmented Control) */}
+      <div className="flex">
+        <div className="segmented-control p-1">
           <button
-            className={`tab-btn ${activeTab === "assessment" ? "active" : ""}`}
-            onClick={() => setActiveTab("assessment")}
+            className={`segmented-item ${activeTab === "overview" ? "active" : ""}`}
+            onClick={() => setActiveTab("overview")}
           >
-            Examiner Assessment & Decisions
+            Overview & Details
           </button>
-        )}
-        <button
-          className={`tab-btn ${activeTab === "timeline" ? "active" : ""}`}
-          onClick={() => setActiveTab("timeline")}
-        >
-          Audit Timeline ({timeline.length})
-        </button>
+          {(isExaminer || isAdmin) && (
+            <button
+              className={`segmented-item ${activeTab === "assessment" ? "active" : ""}`}
+              onClick={() => setActiveTab("assessment")}
+            >
+              Examiner Assessment & Decisions
+            </button>
+          )}
+          <button
+            className={`segmented-item ${activeTab === "timeline" ? "active" : ""}`}
+            onClick={() => setActiveTab("timeline")}
+          >
+            Audit Timeline ({timeline.length})
+          </button>
+        </div>
       </div>
 
       {/* Tab 1: Overview */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
           <div className="lg:col-span-2 space-y-6">
             {/* Incident Description */}
             <div className="card apple-glass p-6 space-y-3">
@@ -712,11 +674,11 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
               </div>
 
               {evidenceList.length === 0 ? (
-                <div className="p-8 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-xl space-y-2">
+                <div className="p-8 text-center bg-white/[0.02] border border-dashed border-white/10 rounded-2xl space-y-2">
                   <p className="text-xs text-[var(--text-muted)]">No photographic evidence uploaded yet.</p>
                   <Link
                     href={`/claims/${claim.id}/evidence`}
-                    className="btn btn-primary text-xs inline-flex"
+                    className="btn btn-primary text-xs inline-flex mt-1"
                   >
                     Upload Vehicle Photos
                   </Link>
@@ -727,7 +689,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                     <Link
                       key={ev.id}
                       href={`/claims/${claim.id}/evidence?evidenceId=${ev.id}`}
-                      className="group relative rounded-xl overflow-hidden aspect-[4/3] bg-white/[0.03] border border-white/10 hover:border-[#0A84FF] transition-all"
+                      className="group relative rounded-2xl overflow-hidden aspect-[4/3] bg-white/[0.03] border border-white/10 hover:border-[#0A84FF] transition-all shadow-xs"
                     >
                       <img
                         src={getAuthenticatedEvidenceUrl(ev)}
@@ -743,7 +705,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                       <div className="thumb-fallback hidden w-full h-full items-center justify-center text-xs text-[var(--text-muted)] bg-white/5">
                         📷
                       </div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-2.5">
                         <span className="text-[10px] font-mono text-white truncate">
                           {ev.originalFilename || ev.filename || `Photo #${ev.id.slice(-4)}`}
                         </span>
@@ -755,7 +717,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
             </div>
           </div>
 
-          {/* Workflow Status Quick Actions (Restricted to Examiner / Admin) */}
+          {/* Workflow Status Quick Actions */}
           <div className="space-y-6">
             {(isExaminer || isAdmin) ? (
               <div className="card apple-glass p-6 space-y-4">
@@ -780,7 +742,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                         className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-all ${
                           isCurrent
                             ? "bg-[#0A84FF] text-white border-[#0A84FF] shadow-sm cursor-default"
-                            : "bg-white/[0.04] text-[var(--text-secondary)] border-white/10 hover:bg-white/10 hover:text-white"
+                            : "bg-white/[0.04] text-[var(--text-secondary)] border-white/10 hover:bg-white/10 hover:text-white cursor-pointer"
                         }`}
                       >
                         <span>{s.label}</span>
@@ -830,9 +792,9 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
       {/* Tab 2: Assessment & Decision (Staff Only) */}
       {activeTab === "assessment" && (isExaminer || isAdmin) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fade-in">
           {/* Assessment Form */}
-          <div className="card apple-glass p-6 space-y-5">
+          <div className="card apple-glass p-6 md:p-7 space-y-5">
             <div className="border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white tracking-tight">
                 {assessment ? "Update Examiner Assessment" : "Record Human Assessment"}
@@ -900,6 +862,20 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                     ETB
                   </span>
                 </div>
+                {/* Presets */}
+                <div className="flex items-center gap-1.5 pt-1.5 flex-wrap">
+                  <span className="text-[11px] text-[var(--text-muted)]">Quick presets:</span>
+                  {[25000, 50000, 75000, 120000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setEstimatedLoss(String(amt))}
+                      className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-[#64D2FF] border border-white/8 transition-colors"
+                    >
+                      {amt.toLocaleString()} ETB
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
@@ -929,7 +905,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
           </div>
 
           {/* Final Examiner Decision */}
-          <div className="card apple-glass p-6 space-y-5">
+          <div className="card apple-glass p-6 md:p-7 space-y-5">
             <div className="border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white tracking-tight">
                 Record Final Examiner Decision
@@ -945,7 +921,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                   Decision Outcome *
                 </label>
                 <select
-                  className="select w-full text-xs h-10 mt-1"
+                  className="select w-full text-xs h-11 mt-1"
                   value={decisionType}
                   onChange={(e) => setDecisionType(e.target.value as ExaminerDecisionType)}
                 >
@@ -996,7 +972,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                   !decisionNotes.trim() ||
                   (aiRiskAssessment?.label === "POTENTIAL_FRAUD" && !fraudAcknowledged)
                 }
-                className="btn btn-secondary w-full py-2.5 text-xs font-semibold border-[#0A84FF]/40 text-[#64D2FF] hover:bg-[#0A84FF]/10 flex items-center justify-center gap-2 disabled:opacity-50"
+                className="btn btn-primary w-full py-2.5 text-xs font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 {submittingDecision ? "Logging Decision…" : "Commit Examiner Decision"}
               </button>
@@ -1007,7 +983,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
 
       {/* Tab 3: Timeline & Audit Events */}
       {activeTab === "timeline" && (
-        <div className="card apple-glass p-6 md:p-8 space-y-6">
+        <div className="card apple-glass p-6 md:p-8 space-y-6 animate-fade-in">
           <div className="flex items-center justify-between border-b border-[var(--border)] pb-4">
             <div>
               <h3 className="text-base font-bold text-white tracking-tight">Chronological Audit Timeline</h3>
@@ -1058,7 +1034,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       {/* Modal: Submit Draft Claim (Intake User) */}
       {showSubmitModal && (
         <div className="modal-overlay" onClick={() => setShowSubmitModal(false)}>
-          <div className="card apple-glass p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 sm:p-7 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white">Submit Claim for Review</h3>
               <button onClick={() => setShowSubmitModal(false)} className="text-[var(--text-muted)] hover:text-white">✕</button>
@@ -1106,7 +1082,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       {/* Modal: Assign Examiner (Admin Only) */}
       {showAssignModal && (
         <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
-          <div className="card apple-glass p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 sm:p-7 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white">Assign Claims Examiner</h3>
               <button onClick={() => setShowAssignModal(false)} className="text-[var(--text-muted)] hover:text-white">✕</button>
@@ -1118,7 +1094,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                   Select Examiner *
                 </label>
                 <select
-                  className="select w-full text-xs h-10 mt-1"
+                  className="select w-full text-xs h-11 mt-1"
                   value={selectedExaminerId}
                   onChange={(e) => setSelectedExaminerId(e.target.value)}
                   required
@@ -1169,7 +1145,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       {/* Modal: Close Claim (Admin Only) */}
       {showCloseModal && (
         <div className="modal-overlay" onClick={() => setShowCloseModal(false)}>
-          <div className="card apple-glass p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 sm:p-7 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white">Close Claim File</h3>
               <button onClick={() => setShowCloseModal(false)} className="text-[var(--text-muted)] hover:text-white">✕</button>
@@ -1181,7 +1157,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                   Closure Reason *
                 </label>
                 <select
-                  className="select w-full text-xs h-10 mt-1"
+                  className="select w-full text-xs h-11 mt-1"
                   value={closeReason}
                   onChange={(e) => setCloseReason(e.target.value)}
                 >
@@ -1216,7 +1192,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 <button
                   type="submit"
                   disabled={closingClaim}
-                  className="btn btn-secondary text-xs py-2 px-5 border-[#FF453A]/40 text-[#FF6961] hover:bg-[#FF453A]/10 font-semibold"
+                  className="btn btn-danger text-xs py-2 px-5 font-semibold"
                 >
                   {closingClaim ? "Closing…" : "Finalize Closure"}
                 </button>
@@ -1229,7 +1205,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       {/* Modal: Request More Evidence */}
       {showEvidenceModal && (
         <div className="modal-overlay" onClick={() => setShowEvidenceModal(false)}>
-          <div className="card apple-glass p-6 max-w-lg w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 sm:p-7 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
               <h3 className="text-base font-bold text-white">Request Additional Evidence</h3>
               <button onClick={() => setShowEvidenceModal(false)} className="text-[var(--text-muted)] hover:text-white">✕</button>
@@ -1242,7 +1218,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 </label>
                 <input
                   type="text"
-                  className="input text-xs h-10 mt-1"
+                  className="input text-xs h-11 mt-1"
                   placeholder="e.g. Photo of vehicle damage from left side"
                   value={requestItem}
                   onChange={(e) => setRequestItem(e.target.value)}
@@ -1269,7 +1245,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 </label>
                 <input
                   type="date"
-                  className="input text-xs h-10 mt-1"
+                  className="input text-xs h-11 mt-1"
                   value={requestDeadline}
                   onChange={(e) => setRequestDeadline(e.target.value)}
                 />
@@ -1286,7 +1262,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 <button
                   type="submit"
                   disabled={submittingRequest}
-                  className="btn btn-primary text-xs py-2 px-5"
+                  className="btn btn-primary text-xs py-2 px-5 font-semibold"
                 >
                   {submittingRequest ? "Sending Request…" : "Send Request"}
                 </button>
@@ -1299,9 +1275,9 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
       {/* Modal: Edit Claim Pre-Review Fields */}
       {showEditModal && (
         <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="card apple-glass p-6 max-w-lg w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 sm:p-7 space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-              <h3 className="text-base font-bold text-white">Edit Claim Pre-Review Fields</h3>
+              <h3 className="text-base font-bold text-white">Edit Claim Details</h3>
               <button onClick={() => setShowEditModal(false)} className="text-[var(--text-muted)] hover:text-white">✕</button>
             </div>
 
@@ -1312,7 +1288,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 </label>
                 <input
                   type="text"
-                  className="input text-xs h-10 mt-1"
+                  className="input text-xs h-11 mt-1"
                   value={editClaimantPhone}
                   onChange={(e) => setEditClaimantPhone(e.target.value)}
                 />
@@ -1324,7 +1300,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 </label>
                 <input
                   type="text"
-                  className="input text-xs font-mono uppercase h-10 mt-1"
+                  className="input text-xs font-mono uppercase h-11 mt-1"
                   value={editPlate}
                   onChange={(e) => setEditPlate(e.target.value)}
                 />
@@ -1353,7 +1329,7 @@ export default function ClaimDetailPage({ params }: { params: Promise<{ claimId:
                 <button
                   type="submit"
                   disabled={savingEdit}
-                  className="btn btn-primary text-xs py-2 px-5"
+                  className="btn btn-primary text-xs py-2 px-5 font-semibold"
                 >
                   {savingEdit ? "Saving…" : "Save Changes"}
                 </button>

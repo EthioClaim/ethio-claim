@@ -1,62 +1,9 @@
 @import "tailwindcss";
+@import "./design-tokens.css";
 
 /* ══════════════════════════════════════════════════════════════════
    ETHIOCLAIM — APPLE DESIGN SYSTEM (WWDC Fluid Interfaces & Design)
    ══════════════════════════════════════════════════════════════════ */
-
-:root {
-  /* ── Apple Dark Palette & System Backgrounds ── */
-  --bg-base:        #070709;   /* Pure Deep OLED Canvas */
-  --bg-surface:     #121215;   /* System Secondary Canvas */
-  --bg-elevated:    #1c1c20;   /* System Tertiary / Grouped Base */
-  --bg-card:        rgba(26, 26, 30, 0.72); /* Translucent Frosted Glass Card */
-  --bg-card-hover:  rgba(34, 34, 40, 0.85);
-
-  /* ── Translucent Glass Materials ── */
-  --material-chrome:   rgba(16, 16, 20, 0.78);
-  --material-sidebar:  rgba(13, 13, 17, 0.82);
-  --material-overlay:  rgba(0, 0, 0, 0.65);
-  --material-subtle:   rgba(255, 255, 255, 0.05);
-
-  /* ── Apple Structural Borders & Highlights (Rule 12: Light Catching Bevel) ── */
-  --border:            rgba(255, 255, 255, 0.08);
-  --border-light:      rgba(255, 255, 255, 0.14);
-  --border-highlight:  rgba(255, 255, 255, 0.22);
-  --highlight-bevel:   inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
-
-  /* ── Apple High-Contrast Vibrancy Typography (Rule 12 & 15) ── */
-  --text-primary:      #FFFFFF;
-  --text-secondary:    rgba(235, 235, 245, 0.76);
-  --text-muted:        rgba(235, 235, 245, 0.48);
-  --text-quaternary:   rgba(235, 235, 245, 0.28);
-
-  /* ── Apple Dynamic System Accents (Dark Mode Vibrancy) ── */
-  --accent-blue:       #0A84FF;   /* Apple System Blue */
-  --accent-blue-subtle:rgba(10, 132, 255, 0.16);
-  --accent-emerald:    #30D158;   /* Apple System Green */
-  --accent-emerald-subtle: rgba(48, 209, 88, 0.16);
-  --accent-amber:      #FF9F0A;   /* Apple System Orange */
-  --accent-amber-subtle: rgba(255, 159, 10, 0.16);
-  --accent-red:        #FF453A;   /* Apple System Red */
-  --accent-red-subtle: rgba(255, 69, 58, 0.16);
-  --accent-purple:     #BF5AF2;   /* Apple System Purple */
-  --accent-purple-subtle: rgba(191, 90, 242, 0.16);
-  --accent-cyan:       #64D2FF;   /* Apple System Teal/Cyan */
-  --accent-cyan-subtle: rgba(100, 210, 255, 0.16);
-  --accent-indigo:     #5E5CE6;   /* Apple System Indigo */
-
-  /* ── Fluid Springs & Motion Physics (Rule 3 & 4) ── */
-  /* Critically damped default (damping 1.0, response 0.35s) — no overshoot */
-  --spring-crit:       cubic-bezier(0.16, 1, 0.3, 1);
-  /* Controlled bounce spring (damping 0.8, response 0.35s) — momentum / flick */
-  --spring-bounce:     cubic-bezier(0.34, 1.35, 0.64, 1);
-  /* Snappy direct response */
-  --spring-snappy:     cubic-bezier(0.2, 0.8, 0.2, 1);
-  /* Instant touch-down active feedback (Rule 1) */
-  --touch-duration:    100ms;
-
-  --sidebar-width:     264px;
-}
 
 /* ── Reset & Optical Typography Foundations (Rule 15) ───────────── */
 *, *::before, *::after {
@@ -78,28 +25,27 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;
-  letter-spacing: -0.006em;
+  letter-spacing: -0.008em;
   font-optical-sizing: auto;
   overflow-x: hidden;
 }
 
-/* Optical Display Hierarchy & Dedicated Header Spacing (Requirement 2 & Rule 15) */
+/* ── Optical Display Hierarchy (Rule 15: Optical Sizing & Tracking) ── */
 h1, h2, h3, .heading-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Space Grotesk", sans-serif;
-  letter-spacing: -0.02em;
-  line-height: 1.35;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  letter-spacing: -0.026em;
+  line-height: 1.25;
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
 h4, h5, h6, .heading-sub {
-  letter-spacing: -0.015em;
+  letter-spacing: -0.018em;
   line-height: 1.35;
   font-weight: 600;
   margin-bottom: 0.375rem;
 }
 
-/* Prevent collision and maintain baseline alignment when headings are flex-centered with badges/actions */
 .flex.items-center > h1,
 .flex.items-center > h2,
 .flex.items-center > h3,
@@ -111,7 +57,7 @@ h4, h5, h6, .heading-sub {
   margin-bottom: 0;
 }
 
-/* ── Custom Scrollbar (Subtle Apple Style) ───────────────────────── */
+/* ── Custom Scrollbar (Subtle macOS Style) ───────────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -120,48 +66,48 @@ h4, h5, h6, .heading-sub {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.16);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* ── Translucent Glass Materials & Chrome (Rule 12) ──────────────── */
 .apple-glass {
   background: var(--bg-card);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border);
-  box-shadow: var(--highlight-bevel), 0 8px 32px rgba(0, 0, 0, 0.32);
+  box-shadow: var(--highlight-bevel), var(--shadow-subtle);
 }
 
 .apple-chrome {
   background: var(--material-chrome);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
   border-bottom: 1px solid var(--border);
-  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .apple-sidebar {
   background: var(--material-sidebar);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
   border-right: 1px solid var(--border);
-  box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.04);
+  box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.04), 4px 0 24px rgba(0, 0, 0, 0.3);
 }
 
 .glass {
   background: var(--bg-card);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
   border: 1px solid var(--border);
   box-shadow: var(--highlight-bevel);
 }
 
 .glass-hover {
-  transition: background 0.3s var(--spring-crit), border-color 0.2s, transform 0.3s var(--spring-crit);
+  transition: background 0.25s var(--spring-crit), border-color 0.2s, transform 0.25s var(--spring-crit);
 }
 .glass-hover:hover {
   background: var(--bg-card-hover);
@@ -171,26 +117,25 @@ h4, h5, h6, .heading-sub {
 /* ── Cards (Apple Inset Grouped / Translucent Elevation) ────────── */
 .card {
   background: var(--bg-card);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border);
-  border-radius: 18px;
-  box-shadow: var(--highlight-bevel), 0 4px 24px rgba(0, 0, 0, 0.28);
-  transition: transform 0.35s var(--spring-crit), border-color 0.2s, box-shadow 0.35s var(--spring-crit);
+  border-radius: 20px;
+  box-shadow: var(--highlight-bevel), var(--shadow-subtle);
+  transition: transform 0.3s var(--spring-crit), border-color 0.2s, box-shadow 0.3s var(--spring-crit);
   overflow: hidden;
 }
 
 .card-hover:hover {
   border-color: var(--border-light);
   transform: translateY(-2px);
-  box-shadow: var(--highlight-bevel), 0 12px 36px rgba(0, 0, 0, 0.42);
+  box-shadow: var(--highlight-bevel), var(--shadow-elevated);
 }
 
 /* ── Interactive Active Touch Feedback (Rule 1 & 4) ──────────────── */
-/* Instant feedback on pointer-down/touch-down */
 .card-press:active,
 .interactive-press:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
   transition: transform var(--touch-duration) var(--spring-snappy) !important;
 }
 
@@ -201,7 +146,7 @@ h4, h5, h6, .heading-sub {
   justify-content: center;
   gap: 8px;
   padding: 8px 16px;
-  border-radius: 10px;
+  border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -211,46 +156,46 @@ h4, h5, h6, .heading-sub {
   user-select: none;
   -webkit-user-select: none;
   position: relative;
-  transition: transform 0.25s var(--spring-crit), background-color 0.2s, border-color 0.2s, box-shadow 0.25s var(--spring-crit), opacity 0.2s;
+  transition: transform 0.2s var(--spring-crit), background-color 0.2s, border-color 0.2s, box-shadow 0.2s var(--spring-crit), opacity 0.2s;
 }
 
 /* Instantaneous Touch-Down Active Feedback (Rule 1: Kill Latency) */
 .btn:active {
   transform: scale(0.965);
-  transition: transform var(--touch-duration) var(--spring-snappy);
+  transition: transform var(--touch-duration) var(--spring-snappy) !important;
 }
 
 .btn-primary {
   background: var(--accent-blue);
   color: #FFFFFF;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 .btn-primary:hover {
-  background: #0071e3;
-  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  background: var(--accent-blue-hover);
+  box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border: 1px solid var(--border-light);
   color: var(--text-primary);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--highlight-bevel);
 }
 .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
   border-color: var(--border-highlight);
 }
 
 .btn-danger {
   background: var(--accent-red-subtle);
-  border: 1px solid rgba(255, 69, 58, 0.3);
+  border: 1px solid rgba(255, 69, 58, 0.32);
   color: #FF453A;
 }
 .btn-danger:hover {
   background: rgba(255, 69, 58, 0.26);
-  border-color: rgba(255, 69, 58, 0.5);
+  border-color: rgba(255, 69, 58, 0.55);
 }
 
 .btn-ghost {
@@ -259,76 +204,87 @@ h4, h5, h6, .heading-sub {
   border: 1px solid transparent;
 }
 .btn-ghost:hover {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.07);
   color: var(--text-primary);
 }
 
 .btn-sm {
   padding: 6px 12px;
   font-size: 0.8125rem;
-  border-radius: 8px;
+  border-radius: 9px;
 }
 
 .btn-lg {
   padding: 12px 24px;
   font-size: 1rem;
-  border-radius: 12px;
+  border-radius: 14px;
 }
 
 /* ── Segmented Control (Apple iOS/macOS Style) ───────────────────── */
 .segmented-control {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.38);
   border: 1px solid var(--border);
   padding: 3px;
-  border-radius: 11px;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+  border-radius: 13px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .segmented-item {
-  padding: 5px 12px;
+  padding: 6px 14px;
   font-size: 0.8125rem;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text-muted);
   border: none;
   background: transparent;
   cursor: pointer;
-  transition: all 0.25s var(--spring-crit);
+  transition: all 0.22s var(--spring-crit);
   user-select: none;
+  white-space: nowrap;
 }
 .segmented-item:active {
-  transform: scale(0.96);
+  transform: scale(0.965);
   transition: transform var(--touch-duration) var(--spring-snappy);
 }
 .segmented-item.active {
   background: rgba(255, 255, 255, 0.14);
   color: var(--text-primary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  font-weight: 600;
 }
 
 /* ── Inputs (Apple Spotlight & Glass Form Fields) ─────────────────── */
 .input {
   width: 100%;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 12px;
   padding: 10px 14px;
   font-size: 0.875rem;
   color: var(--text-primary);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.25s var(--spring-crit), background-color 0.2s;
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s, box-shadow 0.22s var(--spring-crit), background-color 0.2s;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 .input:focus {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-input-focus);
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.24), inset 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 .input::placeholder {
   color: var(--text-muted);
+}
+input[type="date"],
+input[type="datetime-local"],
+input[type="time"] {
+  color-scheme: dark;
+}
+textarea.input {
+  resize: vertical;
+  min-height: 84px;
 }
 
 .label {
@@ -343,28 +299,28 @@ h4, h5, h6, .heading-sub {
 /* ── Select (Apple Glass Dropdown) ───────────────────────────────── */
 .select {
   appearance: none;
-  background: rgba(255, 255, 255, 0.06) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ebebf5' stroke-opacity='0.6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 12px center / 16px;
+  background: var(--bg-input) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ebebf5' stroke-opacity='0.6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 14px center / 16px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 9px 34px 9px 12px;
+  border-radius: 12px;
+  padding: 10px 36px 10px 14px;
   font-size: 0.875rem;
   font-weight: 500;
   color: var(--text-primary);
   outline: none;
-  transition: border-color 0.2s, background-color 0.2s, transform 0.2s var(--spring-crit);
+  transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s var(--spring-crit);
   cursor: pointer;
   box-shadow: var(--highlight-bevel);
 }
 .select:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: var(--bg-input-focus);
   border-color: var(--border-light);
 }
 .select:focus {
   border-color: var(--accent-blue);
-  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.24);
 }
 .select:active {
-  transform: scale(0.98);
+  transform: scale(0.985);
   transition: transform var(--touch-duration) var(--spring-snappy);
 }
 
@@ -405,18 +361,18 @@ h4, h5, h6, .heading-sub {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 9px;
+  padding: 4px 10px;
   border-radius: 9999px;
   font-size: 0.71rem;
   font-weight: 600;
   letter-spacing: 0.025em;
   text-transform: uppercase;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   transition: transform 0.2s var(--spring-crit);
 }
 .badge:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
 }
 
 /* ── Sidebar (Apple macOS Fluid Translucent Sidebar) ─────────────── */
@@ -427,14 +383,25 @@ h4, h5, h6, .heading-sub {
   bottom: 0;
   width: var(--sidebar-width);
   background: var(--material-sidebar);
-  backdrop-filter: blur(28px) saturate(190%);
-  -webkit-backdrop-filter: blur(28px) saturate(190%);
+  backdrop-filter: blur(36px) saturate(190%);
+  -webkit-backdrop-filter: blur(36px) saturate(190%);
   border-right: 1px solid var(--border);
-  z-index: 40;
+  z-index: 50;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.04), 4px 0 24px rgba(0, 0, 0, 0.28);
+  box-shadow: inset -1px 0 0 0 rgba(255, 255, 255, 0.04), 4px 0 24px rgba(0, 0, 0, 0.3);
+  transition: transform 0.35s var(--spring-crit);
+}
+
+@media (max-width: 1023px) {
+  .sidebar:not(.mobile-open) {
+    transform: translateX(-100%);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+    box-shadow: 0 0 0 100vw rgba(0, 0, 0, 0.65), 8px 0 32px rgba(0, 0, 0, 0.5);
+  }
 }
 
 .sidebar-link {
@@ -442,7 +409,7 @@ h4, h5, h6, .heading-sub {
   align-items: center;
   gap: 12px;
   padding: 9px 14px;
-  border-radius: 10px;
+  border-radius: 12px;
   margin: 2px 10px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -472,8 +439,8 @@ h4, h5, h6, .heading-sub {
 .topbar {
   height: 64px;
   background: var(--material-chrome);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(32px) saturate(190%);
+  -webkit-backdrop-filter: blur(32px) saturate(190%);
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -482,25 +449,25 @@ h4, h5, h6, .heading-sub {
   position: sticky;
   top: 0;
   z-index: 30;
-  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.2);
+  box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
-/* ── Stat Card (Apple Dashboard Modular Metric Cards) ─────────────── */
+/* ── Stat Card (Apple Modular Metric Cards) ───────────────────────── */
 .stat-card {
   background: var(--bg-card);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+  backdrop-filter: blur(28px) saturate(190%);
+  -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 22px;
-  box-shadow: var(--highlight-bevel), 0 4px 20px rgba(0, 0, 0, 0.25);
-  transition: transform 0.35s var(--spring-crit), border-color 0.2s, box-shadow 0.35s var(--spring-crit);
+  box-shadow: var(--highlight-bevel), var(--shadow-subtle);
+  transition: transform 0.3s var(--spring-crit), border-color 0.2s, box-shadow 0.3s var(--spring-crit);
   user-select: none;
 }
 .stat-card:hover {
   border-color: var(--border-light);
   transform: translateY(-2px);
-  box-shadow: var(--highlight-bevel), 0 12px 32px rgba(0, 0, 0, 0.38);
+  box-shadow: var(--highlight-bevel), var(--shadow-elevated);
 }
 .stat-card:active {
   transform: scale(0.985);
@@ -513,6 +480,8 @@ h4, h5, h6, .heading-sub {
   gap: 8px;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 .tab-btn {
   padding: 10px 18px;
@@ -524,7 +493,8 @@ h4, h5, h6, .heading-sub {
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.25s var(--spring-crit);
-  border-radius: 6px 6px 0 0;
+  border-radius: 8px 8px 0 0;
+  white-space: nowrap;
 }
 .tab-btn:hover {
   color: var(--text-primary);
@@ -558,8 +528,8 @@ h4, h5, h6, .heading-sub {
   position: fixed;
   inset: 0;
   background: var(--material-overlay);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(20px) saturate(170%);
+  -webkit-backdrop-filter: blur(20px) saturate(170%);
   z-index: 100;
   display: flex;
   align-items: center;
@@ -567,22 +537,22 @@ h4, h5, h6, .heading-sub {
   padding: 16px;
 }
 .modal {
-  background: rgba(28, 28, 32, 0.94);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
+  background: var(--material-modal);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
   border: 1px solid var(--border-light);
   border-radius: 24px;
-  width: min(560px, 94vw);
+  width: min(580px, 94vw);
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--highlight-bevel), 0 24px 64px rgba(0, 0, 0, 0.6);
-  animation: appleModalSpring 0.38s var(--spring-bounce);
+  box-shadow: var(--highlight-bevel), var(--shadow-sheet);
+  animation: appleModalSpring 0.35s var(--spring-bounce);
 }
 
 @keyframes appleModalSpring {
   0% {
     opacity: 0;
-    transform: scale(0.94) translateY(12px);
+    transform: scale(0.95) translateY(12px);
   }
   100% {
     opacity: 1;
@@ -610,6 +580,34 @@ h4, h5, h6, .heading-sub {
   background-clip: text;
 }
 
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.35s var(--spring-crit) forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s var(--spring-crit) forwards;
+}
+
 /* ── Reduced Motion Accessibility (Rule 14) ──────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
@@ -626,7 +624,10 @@ h4, h5, h6, .heading-sub {
   .tab-btn:active {
     transform: none !important;
   }
-  .modal {
+  .modal,
+  .animate-fade-in-up,
+  .animate-fade-in {
     animation: none !important;
+    transform: none !important;
   }
 }

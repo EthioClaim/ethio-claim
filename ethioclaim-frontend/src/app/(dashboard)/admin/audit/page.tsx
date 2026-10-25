@@ -262,8 +262,8 @@ export default function AdminAuditLogPage() {
 
       {/* Payload Modal */}
       {selectedLog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
-          <div className="card apple-glass max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div className="modal-overlay" onClick={() => setSelectedLog(null)}>
+          <div className="card apple-glass modal-content max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-white/10">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-mono font-bold text-[#BF5AF2]">

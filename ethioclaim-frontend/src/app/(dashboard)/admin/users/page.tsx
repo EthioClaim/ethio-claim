@@ -351,8 +351,8 @@ export default function AdminUsersPage() {
 
       {/* CREATE USER MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
+          <div className="card apple-glass modal-content max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <h3 className="text-base font-bold text-white">Add New Staff Member</h3>
               <button
@@ -467,8 +467,8 @@ export default function AdminUsersPage() {
 
       {/* EDIT USER MODAL */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div className="modal-overlay" onClick={() => setEditingUser(null)}>
+          <div className="card apple-glass modal-content max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <div>
                 <h3 className="text-base font-bold text-white">Edit Staff User</h3>

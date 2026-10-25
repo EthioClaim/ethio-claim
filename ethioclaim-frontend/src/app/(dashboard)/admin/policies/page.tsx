@@ -386,8 +386,8 @@ export default function AdminPoliciesPage() {
 
       {/* CREATE POLICY MODAL */}
       {isCreateOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
+          <div className="card apple-glass modal-content max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <h3 className="text-base font-bold text-white">Register Policy Record</h3>
               <button
@@ -566,8 +566,8 @@ export default function AdminPoliciesPage() {
 
       {/* EDIT POLICY MODAL */}
       {editingPolicy && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-          <div className="card apple-glass max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl">
+        <div className="modal-overlay" onClick={() => setEditingPolicy(null)}>
+          <div className="card apple-glass modal-content max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
               <div>
                 <h3 className="text-base font-bold text-white">Edit Policy Record</h3>
