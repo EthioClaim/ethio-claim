@@ -2,10 +2,10 @@
 @import "./design-tokens.css";
 
 /* ══════════════════════════════════════════════════════════════════
-   ETHIOCLAIM — APPLE DESIGN SYSTEM (WWDC Fluid Interfaces & Design)
+   ETHIOCLAIM — APPLE DESIGN SYSTEM (HIG & WWDC Fluid Interfaces)
    ══════════════════════════════════════════════════════════════════ */
 
-/* ── Reset & Optical Typography Foundations (Rule 15) ───────────── */
+/* ── Reset & Optical Typography Foundations ──────────────────────── */
 *,
 *::before,
 *::after {
@@ -20,26 +20,26 @@ html {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", -system-ui, sans-serif;
   background-color: var(--bg-base);
   color: var(--text-primary);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   line-height: 1.55;
-  letter-spacing: -0.008em;
+  letter-spacing: -0.011em;
   font-optical-sizing: auto;
   overflow-x: hidden;
 }
 
-/* ── Optical Display Hierarchy (Rule 15: Optical Sizing & Tracking) ── */
+/* ── Optical Display Typography ──────────────────────────────────── */
 h1,
 h2,
 h3,
 .heading-display {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
-  letter-spacing: -0.026em;
-  line-height: 1.25;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", sans-serif;
+  letter-spacing: -0.032em;
+  line-height: 1.2;
   font-weight: 700;
   margin-bottom: 0.5rem;
 }
@@ -54,18 +54,18 @@ h6,
   margin-bottom: 0.375rem;
 }
 
-.flex.items-center>h1,
-.flex.items-center>h2,
-.flex.items-center>h3,
-.flex.items-center>h4,
-.inline-flex>h1,
-.inline-flex>h2,
-.inline-flex>h3,
-.inline-flex>h4 {
+.flex.items-center > h1,
+.flex.items-center > h2,
+.flex.items-center > h3,
+.flex.items-center > h4,
+.inline-flex > h1,
+.inline-flex > h2,
+.inline-flex > h3,
+.inline-flex > h4 {
   margin-bottom: 0;
 }
 
-/* ── Custom Scrollbar (Subtle macOS Style) ───────────────────────── */
+/* ── Custom Scrollbar (macOS Sequoia subtle style) ────────────────── */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -84,7 +84,7 @@ h6,
   background: rgba(255, 255, 255, 0.28);
 }
 
-/* ── Translucent Glass Materials & Chrome (Rule 12) ──────────────── */
+/* ── Translucent Glass Materials & Chrome ─────────────────────────── */
 .apple-glass {
   background: var(--bg-card);
   backdrop-filter: blur(28px) saturate(190%);
@@ -132,7 +132,7 @@ h6,
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 22px;
   box-shadow: var(--highlight-bevel), var(--shadow-subtle);
   transition: transform 0.3s var(--spring-crit), border-color 0.2s, box-shadow 0.3s var(--spring-crit);
   overflow: hidden;
@@ -144,7 +144,7 @@ h6,
   box-shadow: var(--highlight-bevel), var(--shadow-elevated);
 }
 
-/* ── Interactive Active Touch Feedback (Rule 1 & 4) ──────────────── */
+/* ── Interactive Active Touch Feedback ───────────────────────────── */
 .card-press:active,
 .interactive-press:active {
   transform: scale(0.985);
@@ -178,14 +178,15 @@ h6,
 }
 
 .btn-primary {
-  background: var(--accent-blue);
+  background: linear-gradient(180deg, #0A84FF 0%, #0071E3 100%);
   color: #FFFFFF;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  border: 1px solid rgba(10, 132, 255, 0.4);
 }
 
 .btn-primary:hover {
-  background: var(--accent-blue-hover);
-  box-shadow: 0 4px 14px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  background: linear-gradient(180deg, #1C8DFF 0%, #0060DF 100%);
+  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .btn-secondary {
@@ -227,7 +228,7 @@ h6,
 .btn-sm {
   padding: 6px 12px;
   font-size: 0.8125rem;
-  border-radius: 9px;
+  border-radius: 10px;
 }
 
 .btn-lg {
@@ -239,17 +240,17 @@ h6,
 /* ── Segmented Control (Apple iOS/macOS Style) ───────────────────── */
 .segmented-control {
   display: inline-flex;
-  background: rgba(0, 0, 0, 0.38);
+  background: rgba(0, 0, 0, 0.45);
   border: 1px solid var(--border);
-  padding: 3px;
-  border-radius: 13px;
+  padding: 4px;
+  border-radius: 14px;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 .segmented-item {
-  padding: 6px 14px;
+  padding: 7px 16px;
   font-size: 0.8125rem;
   font-weight: 500;
   border-radius: 10px;
@@ -268,9 +269,9 @@ h6,
 }
 
 .segmented-item.active {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.16);
   color: var(--text-primary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   font-weight: 600;
 }
 
@@ -279,7 +280,7 @@ h6,
   width: 100%;
   background: var(--bg-input);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 13px;
   padding: 10px 14px;
   font-size: 0.875rem;
   color: var(--text-primary);
@@ -339,7 +340,7 @@ select,
   appearance: none;
   background: var(--bg-input) url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23ebebf5' stroke-opacity='0.6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e") no-repeat right 14px center / 16px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 13px;
   padding: 10px 36px 10px 14px;
   font-size: 0.875rem;
   font-weight: 500;
@@ -371,7 +372,7 @@ select:active,
 
 select option,
 .select option {
-  background-color: #1c1c1e !important;
+  background-color: #171B24 !important;
   color: #f5f5f7 !important;
   padding: 8px 12px;
 }
@@ -384,13 +385,13 @@ select option:checked,
 
 select option:hover,
 .select option:hover {
-  background-color: #2c2c2e !important;
+  background-color: #242B3A !important;
   color: #ffffff !important;
 }
 
 select optgroup,
 .select optgroup {
-  background-color: #141416 !important;
+  background-color: #12151D !important;
   color: #86868b !important;
 }
 
@@ -435,7 +436,7 @@ select optgroup,
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 5.5px;
   padding: 4px 10px;
   border-radius: 9999px;
   font-size: 0.71rem;
@@ -462,7 +463,6 @@ select optgroup,
   backdrop-filter: blur(36px) saturate(190%);
   -webkit-backdrop-filter: blur(36px) saturate(190%);
   border-right: 1px solid var(--border);
-  z-index: 50;
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -533,13 +533,13 @@ select optgroup,
   box-shadow: inset 0 -1px 0 0 rgba(255, 255, 255, 0.04), 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
-/* ── Stat Card (Apple Modular Metric Cards) ───────────────────────── */
+/* ── Stat Card (Apple Modular Metric Bento Cards) ─────────────────── */
 .stat-card {
   background: var(--bg-card);
   backdrop-filter: blur(28px) saturate(190%);
   -webkit-backdrop-filter: blur(28px) saturate(190%);
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: 22px;
   padding: 22px;
   box-shadow: var(--highlight-bevel), var(--shadow-subtle);
   transition: transform 0.3s var(--spring-crit), border-color 0.2s, box-shadow 0.3s var(--spring-crit);
@@ -565,8 +565,6 @@ select optgroup,
   padding-bottom: 0;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
 }
 
 .tab-btn {
@@ -579,7 +577,7 @@ select optgroup,
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.25s var(--spring-crit);
-  border-radius: 8px 8px 0 0;
+  border-radius: 10px 10px 0 0;
   white-space: nowrap;
 }
 
@@ -632,7 +630,7 @@ select optgroup,
   backdrop-filter: blur(36px) saturate(200%);
   -webkit-backdrop-filter: blur(36px) saturate(200%);
   border: 1px solid var(--border-light);
-  border-radius: 24px;
+  border-radius: 26px;
   width: min(580px, 94vw);
   max-height: 90vh;
   overflow-y: auto;
@@ -645,7 +643,6 @@ select optgroup,
     opacity: 0;
     transform: scale(0.95) translateY(12px);
   }
-
   100% {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -657,14 +654,13 @@ select optgroup,
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.09) 50%, rgba(255, 255, 255, 0.04) 75%);
   background-size: 200% 100%;
   animation: appleShimmer 2s infinite ease-in-out;
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
 @keyframes appleShimmer {
   0% {
     background-position: -200% 0;
   }
-
   100% {
     background-position: 200% 0;
   }
@@ -683,7 +679,6 @@ select optgroup,
     opacity: 0;
     transform: translateY(12px);
   }
-
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -694,7 +689,6 @@ select optgroup,
   0% {
     opacity: 0;
   }
-
   100% {
     opacity: 1;
   }
@@ -708,9 +702,8 @@ select optgroup,
   animation: fadeIn 0.25s var(--spring-crit) forwards;
 }
 
-/* ── Reduced Motion Accessibility (Rule 14) ──────────────────────── */
+/* ── Reduced Motion Accessibility ────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
-
   *,
   *::before,
   *::after {
@@ -732,13 +725,7 @@ select optgroup,
   .modal,
   .animate-fade-in-up,
   .animate-fade-in {
-
-    .modal,
-    .animate-fade-in-up,
-    .animate-fade-in {
-      animation: none !important;
-      transform: none !important;
-      transform: none !important;
-    }
+    animation: none !important;
+    transform: none !important;
   }
 }

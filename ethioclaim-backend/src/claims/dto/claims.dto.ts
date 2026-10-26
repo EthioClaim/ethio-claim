@@ -29,6 +29,10 @@ export class VehicleDto {
 
   @IsString()
   @IsOptional()
+  plate?: string;
+
+  @IsString()
+  @IsOptional()
   make?: string;
 
   @IsString()

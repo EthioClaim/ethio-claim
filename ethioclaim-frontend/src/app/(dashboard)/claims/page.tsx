@@ -193,10 +193,11 @@ function ClaimsListContent() {
                   setSelectedStatus(chip.value);
                   setPage(1);
                 }}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 select-none whitespace-nowrap ${isSelected
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 select-none whitespace-nowrap ${
+                  isSelected
                     ? "bg-[#0A84FF] text-white shadow-xs font-semibold"
                     : "bg-white/[0.04] text-[var(--text-secondary)] hover:bg-white/[0.08] hover:text-white border border-white/6"
-                  }`}
+                }`}
               >
                 {chip.label}
               </button>
@@ -275,16 +276,18 @@ function ClaimsListContent() {
           {/* Assigned to me toggle */}
           <label className="flex items-center gap-2.5 text-xs text-[var(--text-secondary)] cursor-pointer select-none px-2 h-11">
             <div
-              className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${assignedToMe ? "bg-[#0A84FF]" : "bg-white/15"
-                }`}
+              className={`w-9 h-5 rounded-full p-0.5 transition-colors duration-200 ease-in-out ${
+                assignedToMe ? "bg-[#0A84FF]" : "bg-white/15"
+              }`}
               onClick={() => {
                 setAssignedToMe(!assignedToMe);
                 setPage(1);
               }}
             >
               <div
-                className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${assignedToMe ? "translate-x-4" : "translate-x-0"
-                  }`}
+                className={`w-4 h-4 rounded-full bg-white shadow-xs transform transition-transform duration-200 ease-in-out ${
+                  assignedToMe ? "translate-x-4" : "translate-x-0"
+                }`}
               />
             </div>
             <span className="font-medium text-white">Assigned to me</span>

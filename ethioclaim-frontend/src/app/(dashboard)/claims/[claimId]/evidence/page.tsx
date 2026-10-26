@@ -124,7 +124,6 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
         }
         await uploadClaimEvidence(claimId, file, (pct) => setUploadProgress(pct));
       }
-      // Section 2: Navigate back to /claims immediately with success indicator
       router.push(`/claims?uploaded=true&claimId=${encodeURIComponent(claimId)}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Evidence upload failed");
@@ -167,7 +166,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
   const selectedEvidence = evidenceList.find((e) => e.id === selectedId);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       {/* Breadcrumb Navigation */}
       <nav className="flex items-center gap-2 text-xs font-medium text-[var(--text-muted)]">
         <Link href="/claims" className="hover:text-white transition-colors">
@@ -185,27 +184,27 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
-            Evidence Upload & Analysis Inspection
+            Evidence Inspection Workspace
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
             {evidenceList.length} photos indexed • SHA-256 duplicate checking • Computer vision damage localization
           </p>
         </div>
 
-        <Link href={`/claims/${claimId}`} className="btn btn-secondary text-xs py-2 px-4">
+        <Link href={`/claims/${claimId}`} className="btn btn-secondary text-xs py-2 px-4 shadow-sm">
           ← Back to Claim Summary
         </Link>
       </div>
 
       {success && (
-        <div className="p-4 rounded-xl bg-[#30D158]/10 border border-[#30D158]/30 text-xs text-[#30D158] flex items-center gap-2">
+        <div className="p-4 rounded-xl bg-[#30D158]/10 border border-[#30D158]/30 text-xs text-[#30D158] flex items-center gap-2 animate-fade-in">
           <span>✓</span>
           <span>{success}</span>
         </div>
       )}
 
       {error && (
-        <div className="p-4 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center justify-between animate-fade-in">
           <span>{error}</span>
           <button onClick={() => setError("")} className="underline ml-3">Dismiss</button>
         </div>
@@ -419,7 +418,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
             {selectedEvidence ? (
               <>
                 {/* Image Inspection Card */}
-                <div className="card apple-glass p-5 md:p-6 space-y-4">
+                <div className="card apple-glass p-5 md:p-6 space-y-4 shadow-lg">
                   <div className="flex items-center justify-between border-b border-[var(--border)] pb-3 flex-wrap gap-3">
                     <div>
                       <h3 className="text-base font-bold text-white font-mono tracking-tight">
@@ -435,7 +434,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                         onClick={handleReanalyze}
                         disabled={reanalyzing}
                         className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
-                        title="Retry AI Damage Analysis (Section 2.5)"
+                        title="Retry AI Damage Analysis"
                       >
                         <svg className={`w-3.5 h-3.5 ${reanalyzing ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -459,7 +458,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                         <button
                           onClick={() => setDeletingId(selectedEvidence.id)}
                           className="btn btn-secondary text-xs py-1.5 px-2.5 text-[#FF6961] hover:bg-[#FF453A]/10 border-white/10"
-                          title="Delete photo safely (Section 2.4)"
+                          title="Delete photo safely"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -470,29 +469,53 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
                   </div>
 
                   {/* AI Status Banner */}
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {analysis?.status === "PENDING" && (
-                      <span className="badge bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 text-xs px-2.5 py-1 animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF] inline-block mr-1.5" />
-                        AI Processing
-                      </span>
-                    )}
-                    {(matches.length > 0 || analysis?.riskAssessment?.label === "POTENTIAL_FRAUD") && (
-                      <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
-                        ⚠️ Fraud Review Flagged ({matches.length} Matches)
-                      </span>
-                    )}
-                    {analysis?.status === "COMPLETED" && (!analysis?.detections || analysis.detections.length === 0) && (
-                      <span className="badge bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40 text-xs px-2.5 py-1 font-semibold">
-                        🔍 No Damage Detected (Examiner Cross-Check Required)
-                      </span>
-                    )}
-                    {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
-                      <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
-                        ✓ AI Damage Localized ({analysis.detections.length} Parts)
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const actionableFraudMatches = matches.filter((m) => {
+                      if (m.matchType === "EXACT_HASH") return true;
+                      if (m.matchType === "NEAR_DUPLICATE" || m.matchType === "PERCEPTUAL_HASH") return true;
+                      if (m.score !== undefined && Number(m.score) >= 0.85) return true;
+                      return false;
+                    });
+                    const subThresholdVisualMatches = matches.filter((m) => {
+                      const isVisual = m.matchType === "VISUAL_SIMILARITY" || m.matchType === "EMBEDDING_SIMILARITY";
+                      return isVisual && m.score !== undefined && Number(m.score) < 0.85;
+                    });
+                    const isFraudFlagged =
+                      actionableFraudMatches.length > 0 ||
+                      (analysis?.riskAssessment?.label === "POTENTIAL_FRAUD" &&
+                        !analysis?.riskAssessment?.reasons?.every((r: string) => r.includes("below") && r.includes("threshold")));
+
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {analysis?.status === "PENDING" && (
+                          <span className="badge bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 text-xs px-2.5 py-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF] inline-block mr-1.5" />
+                            AI Processing
+                          </span>
+                        )}
+                        {isFraudFlagged && (
+                          <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
+                            ⚠️ Fraud Review Flagged ({actionableFraudMatches.length > 0 ? `${actionableFraudMatches.length} High Match(es)` : "Policy Rule"})
+                          </span>
+                        )}
+                        {!isFraudFlagged && subThresholdVisualMatches.length > 0 && (
+                          <span className="badge bg-[#0A84FF]/15 text-[#64D2FF] border border-[#0A84FF]/30 text-xs px-2.5 py-1 font-medium">
+                            ℹ️ {subThresholdVisualMatches.length} Visual Match(es) &lt; 85% Threshold (Non-Fraud)
+                          </span>
+                        )}
+                        {analysis?.status === "COMPLETED" && (!analysis?.detections || analysis.detections.length === 0) && (
+                          <span className="badge bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40 text-xs px-2.5 py-1 font-semibold">
+                            🔍 No Damage Detected (Examiner Cross-Check Required)
+                          </span>
+                        )}
+                        {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
+                          <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
+                            ✓ AI Damage Localized ({analysis.detections.length} Parts)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Main Visual Display */}
                   <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 min-h-[260px] max-h-[480px] flex items-center justify-center p-2">
@@ -588,10 +611,10 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
         </div>
       )}
 
-      {/* Delete Confirmation Modal (Section 2.4: DELETE /evidence/:id) */}
+      {/* Delete Confirmation Modal */}
       {deletingId && (
         <div className="modal-overlay" onClick={() => setDeletingId(null)}>
-          <div className="card apple-glass p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
+          <div className="modal p-6 max-w-md w-full space-y-4" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-3 text-[#FF6961]">
               <div className="w-10 h-10 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 flex items-center justify-center">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -614,7 +637,7 @@ function EvidenceInspectionContent({ claimId }: { claimId: string }) {
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                className="btn text-xs py-2 px-4 bg-[#FF453A] hover:bg-[#FF453A]/80 text-white font-semibold"
+                className="btn btn-danger text-xs py-2 px-4 font-semibold"
               >
                 Delete File
               </button>

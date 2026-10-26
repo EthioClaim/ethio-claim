@@ -67,16 +67,24 @@ export default function LoginPage() {
       return;
     }
 
-
     setLoading(true);
     try {
       await login(username.trim(), password);
       try { await fetchCurrentUser(); } catch { /* fallback */ }
-      try { await fetchCurrentUser(); } catch { /* fallback */ }
       router.push("/claims");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Authentication failed. Check your credentials.");
-      setError(err instanceof Error ? err.message : "Authentication failed. Check your credentials.");
+      let raw = err instanceof Error ? err.message : "Authentication failed. Check your credentials.";
+      if (
+        raw.includes("prisma") ||
+        raw.includes("DATABASE_URL") ||
+        raw.includes("findUnique") ||
+        raw.includes("invocation") ||
+        raw.includes("schema.prisma") ||
+        raw.includes("PrismaClient")
+      ) {
+        raw = "Database service unavailable. Please check the backend database connection or use Demo Sandbox.";
+      }
+      setError(raw);
     } finally {
       setLoading(false);
     }
@@ -100,20 +108,20 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/30 selection:text-white overflow-hidden">
+    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/25 selection:text-[#64D2FF] overflow-hidden">
       {/* ── Apple Ambient Background Specular Blooms ── */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
         <div
-          className="absolute -top-[15%] left-[20%] w-[600px] h-[600px] rounded-full opacity-[0.14] blur-[140px]"
-          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 60%, transparent 100%)" }}
+          className="absolute -top-[15%] left-[20%] w-[620px] h-[620px] rounded-full opacity-[0.14] blur-[140px]"
+          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 55%, transparent 100%)" }}
         />
         <div
-          className="absolute bottom-[10%] right-[15%] w-[520px] h-[520px] rounded-full opacity-[0.09] blur-[130px]"
+          className="absolute bottom-[10%] right-[15%] w-[540px] h-[540px] rounded-full opacity-[0.09] blur-[130px]"
           style={{ background: "radial-gradient(circle, #BF5AF2 0%, #5E5CE6 50%, transparent 100%)" }}
         />
       </div>
 
-      {/* ── Main Container Card ── */}
+      {/* ── Main Container Glass Card ── */}
       <div
         className="relative z-10 w-full max-w-[480px] card apple-glass p-7 sm:p-9 space-y-6"
         style={{
@@ -128,7 +136,7 @@ export default function LoginPage() {
           <div
             className="w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden"
             style={{
-              background: "linear-gradient(135deg, #0A84FF 0%, #0060DF 60%, #64D2FF 100%)",
+              background: "linear-gradient(145deg, #0A84FF 0%, #0060DF 65%, #64D2FF 100%)",
               boxShadow: "0 8px 24px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)",
             }}
           >
@@ -142,8 +150,11 @@ export default function LoginPage() {
             </svg>
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-[-0.03em] heading-display">
+            <h1 className="text-2xl font-bold text-white tracking-[-0.03em] heading-display flex items-center justify-center gap-2">
               EthioClaim
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/35">
+                PRO
+              </span>
             </h1>
             <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm mx-auto leading-relaxed">
               Motor claims intelligence, policy verification, and automated damage assessment
@@ -173,13 +184,27 @@ export default function LoginPage() {
 
         {/* Error Alert Banner */}
         {error && (
-          <div
-            className="p-3.5 rounded-xl bg-[#FF453A]/12 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center gap-2.5 animate-fade-in"
-          >
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span className="font-medium">{error}</span>
+          <div className="p-4 rounded-2xl bg-[#FF453A]/12 border border-[#FF453A]/30 text-xs text-[#FF6961] animate-fade-in space-y-2">
+            <div className="flex items-start gap-2.5">
+              <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-[#FF453A]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <div className="flex-1">
+                <span className="font-medium leading-relaxed block">{error}</span>
+                {(error.toLowerCase().includes("database") || error.toLowerCase().includes("sandbox") || error.toLowerCase().includes("unavailable")) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveMode("sandbox");
+                      setError("");
+                    }}
+                    className="mt-2 text-xs font-semibold text-white underline hover:text-[#64D2FF] transition-colors"
+                  >
+                    Switch to Demo Sandbox →
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         )}
 
@@ -380,19 +405,21 @@ export default function LoginPage() {
           <div className="flex items-center gap-2">
             <span className="relative flex h-2 w-2">
               <span
-                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
-                  }`}
+                className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                  apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
+                }`}
               />
               <span
-                className={`relative inline-flex rounded-full h-2 w-2 ${apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
-                  }`}
+                className={`relative inline-flex rounded-full h-2 w-2 ${
+                  apiOnline === true ? "bg-[#30D158]" : "bg-[#FF9F0A]"
+                }`}
               />
             </span>
             <span className="text-[11px] font-medium">
               {apiOnline === true ? "NestJS API Connected" : "Seamless Mock Fallback Ready"}
             </span>
           </div>
-          <span className="font-mono text-[10px] text-[var(--text-muted)]">Next.js 16 • Turbo</span>
+          <span className="font-mono text-[10px] text-[var(--text-muted)]">Next.js 16 • Turbopack</span>
         </div>
       </div>
 

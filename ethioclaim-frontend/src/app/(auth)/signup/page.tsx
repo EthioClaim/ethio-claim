@@ -8,21 +8,24 @@ import { register, checkHealth, getStoredToken } from "@/lib/api";
 
 type RoleOption = "EXAMINER" | "ADMIN" | "INTAKE_USER";
 
-const ROLE_META: Record<RoleOption, { label: string; description: string; color: string }> = {
+const ROLE_META: Record<RoleOption, { label: string; description: string; color: string; badge: string }> = {
   EXAMINER: {
     label: "Claims Examiner",
-    description: "Review evidence, assess vehicle damage, and record adjudication recommendations",
+    description: "Review evidence, inspect vehicle damage findings, and record binding adjudication determinations",
     color: "#0A84FF",
+    badge: "bg-[#0A84FF]/15 text-[#64D2FF] border-[#0A84FF]/30",
   },
   INTAKE_USER: {
     label: "Intake Officer",
-    description: "Initiate motor claims, verify insurer policy records, and submit damage evidence",
+    description: "Initiate motor claims, verify insurer policy records, and submit damage evidence photos",
     color: "#30D158",
+    badge: "bg-[#30D158]/15 text-[#70E08B] border-[#30D158]/30",
   },
   ADMIN: {
     label: "System Admin",
-    description: "Manage staff accounts, policy registry oversight, operations telemetry & audit",
+    description: "Manage staff accounts, policy registry oversight, operations telemetry & tamper-evident audit logs",
     color: "#BF5AF2",
+    badge: "bg-[#BF5AF2]/15 text-[#E39FF6] border-[#BF5AF2]/30",
   },
 };
 
@@ -98,20 +101,20 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/30 selection:text-white overflow-hidden py-10">
+    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/25 selection:text-[#64D2FF] overflow-hidden py-10">
       {/* ── Apple Ambient Background Specular Blooms ── */}
       <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
         <div
-          className="absolute -top-[15%] right-[20%] w-[600px] h-[600px] rounded-full opacity-[0.14] blur-[140px]"
-          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 60%, transparent 100%)" }}
+          className="absolute -top-[15%] right-[20%] w-[620px] h-[620px] rounded-full opacity-[0.14] blur-[140px]"
+          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 55%, transparent 100%)" }}
         />
         <div
-          className="absolute bottom-[10%] left-[15%] w-[520px] h-[520px] rounded-full opacity-[0.09] blur-[130px]"
+          className="absolute bottom-[10%] left-[15%] w-[540px] h-[540px] rounded-full opacity-[0.09] blur-[130px]"
           style={{ background: "radial-gradient(circle, #30D158 0%, #64D2FF 50%, transparent 100%)" }}
         />
       </div>
 
-      {/* ── Main Container Card ── */}
+      {/* ── Main Container Glass Card ── */}
       <div
         className="relative z-10 w-full max-w-[540px] card apple-glass p-7 sm:p-9 space-y-6"
         style={{
@@ -127,7 +130,7 @@ export default function SignupPage() {
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden group-hover:scale-105 transition-transform"
               style={{
-                background: "linear-gradient(135deg, #0A84FF 0%, #0060DF 60%, #64D2FF 100%)",
+                background: "linear-gradient(145deg, #0A84FF 0%, #0060DF 65%, #64D2FF 100%)",
                 boxShadow: "0 6px 20px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)",
               }}
             >
@@ -146,12 +149,11 @@ export default function SignupPage() {
               Create Staff Account
             </h1>
             <p className="text-xs text-[var(--text-muted)] mt-1 max-w-sm mx-auto leading-relaxed">
-              Register for authorized access to the EthioClaim intelligence platform
+              Register for authorized access to the EthioClaim insurance portal
             </p>
           </div>
         </div>
 
-        {/* Global Error Banner */}
         {error && (
           <div className="p-3.5 rounded-xl bg-[#FF453A]/12 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center gap-2.5 animate-fade-in">
             <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -162,12 +164,54 @@ export default function SignupPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Role Selection Segmented Cards */}
+          {/* Full Name */}
           <div>
             <label className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
-              Select Account Role *
+              Full Name *
             </label>
-            <div className="grid grid-cols-3 gap-2.5 mt-1.5">
+            <input
+              type="text"
+              required
+              className={`input text-sm h-11 ${fieldErrors.fullName ? "border-[#FF453A]" : ""}`}
+              placeholder="e.g. Almaz Bekele"
+              value={fullName}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: "" });
+              }}
+            />
+            {fieldErrors.fullName && (
+              <span className="text-[11px] text-[#FF453A] mt-1 block">{fieldErrors.fullName}</span>
+            )}
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+              Work Email Address *
+            </label>
+            <input
+              type="email"
+              required
+              className={`input text-sm h-11 ${fieldErrors.email ? "border-[#FF453A]" : ""}`}
+              placeholder="almaz@insurer.et"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: "" });
+              }}
+            />
+            {fieldErrors.email && (
+              <span className="text-[11px] text-[#FF453A] mt-1 block">{fieldErrors.email}</span>
+            )}
+          </div>
+
+          {/* Role Selection Segmented Grid */}
+          <div>
+            <label className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+              Assigned Operational Role *
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {(Object.keys(ROLE_META) as RoleOption[]).map((r) => {
                 const meta = ROLE_META[r];
                 const isSelected = role === r;
@@ -176,86 +220,36 @@ export default function SignupPage() {
                     key={r}
                     type="button"
                     onClick={() => setRole(r)}
-                    className={`p-3 rounded-2xl border text-left transition-all active:scale-[0.98] flex flex-col justify-between ${isSelected
-                        ? "bg-white/[0.08] border-[#0A84FF] shadow-sm shadow-[#0A84FF]/20"
-                        : "bg-white/[0.03] border-white/8 hover:bg-white/[0.06] hover:border-white/15"
-                      }`}
+                    className={`p-3 rounded-2xl border text-left transition-all duration-200 select-none flex flex-col justify-between ${
+                      isSelected
+                        ? "bg-white/[0.08] border-[#0A84FF] shadow-xs"
+                        : "bg-white/[0.03] border-white/8 hover:bg-white/[0.06] hover:border-white/14"
+                    }`}
                   >
-                    <div className="flex items-center justify-between w-full mb-1">
-                      <span
-                        className="w-2 h-2 rounded-full"
-                        style={{ background: meta.color }}
-                      />
-                      {isSelected && (
-                        <svg className="w-3.5 h-3.5 text-[#0A84FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="text-xs font-bold text-white">{meta.label}</span>
+                        {isSelected && (
+                          <span className="w-2 h-2 rounded-full bg-[#0A84FF]" />
+                        )}
+                      </div>
+                      <p className="text-[10px] text-[var(--text-muted)] leading-tight">
+                        {meta.description}
+                      </p>
                     </div>
-                    <span className="text-xs font-semibold text-white tracking-tight">
-                      {meta.label}
-                    </span>
                   </button>
                 );
               })}
             </div>
-            <p className="text-[11px] text-[var(--text-muted)] mt-1.5 leading-snug">
-              {ROLE_META[role].description}
-            </p>
           </div>
 
-          {/* Full Name */}
-          <div>
-            <label htmlFor="signup-name" className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
-              Full Name *
-            </label>
-            <input
-              id="signup-name"
-              type="text"
-              required
-              className={`input text-sm h-11 ${fieldErrors.fullName ? "border-[#FF453A]" : ""}`}
-              placeholder="e.g. Solomon Tadesse"
-              value={fullName}
-              onChange={(e) => {
-                setFullName(e.target.value);
-                if (fieldErrors.fullName) setFieldErrors({ ...fieldErrors, fullName: "" });
-              }}
-            />
-            {fieldErrors.fullName && (
-              <p className="text-[11px] text-[#FF453A] mt-1">{fieldErrors.fullName}</p>
-            )}
-          </div>
-
-          {/* Email */}
-          <div>
-            <label htmlFor="signup-email" className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
-              Official Email Address *
-            </label>
-            <input
-              id="signup-email"
-              type="email"
-              required
-              className={`input text-sm h-11 ${fieldErrors.email ? "border-[#FF453A]" : ""}`}
-              placeholder="name@ethioclaim.et"
-              value={email}
-              onChange={(e) => {
-                setEmail(e.target.value);
-                if (fieldErrors.email) setFieldErrors({ ...fieldErrors, email: "" });
-              }}
-            />
-            {fieldErrors.email && (
-              <p className="text-[11px] text-[#FF453A] mt-1">{fieldErrors.email}</p>
-            )}
-          </div>
-
-          {/* Passwords */}
+          {/* Password & Confirm */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="signup-password" className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+              <label className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
                 Password *
               </label>
               <input
-                id="signup-password"
                 type={showPassword ? "text" : "password"}
                 required
                 className={`input text-sm h-11 ${fieldErrors.password ? "border-[#FF453A]" : ""}`}
@@ -267,16 +261,15 @@ export default function SignupPage() {
                 }}
               />
               {fieldErrors.password && (
-                <p className="text-[11px] text-[#FF453A] mt-1">{fieldErrors.password}</p>
+                <span className="text-[11px] text-[#FF453A] mt-1 block">{fieldErrors.password}</span>
               )}
             </div>
 
             <div>
-              <label htmlFor="signup-confirm-password" className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
+              <label className="label text-xs uppercase tracking-wider text-[var(--text-muted)] font-semibold">
                 Confirm Password *
               </label>
               <input
-                id="signup-confirm-password"
                 type={showPassword ? "text" : "password"}
                 required
                 className={`input text-sm h-11 ${fieldErrors.confirmPassword ? "border-[#FF453A]" : ""}`}
@@ -288,27 +281,29 @@ export default function SignupPage() {
                 }}
               />
               {fieldErrors.confirmPassword && (
-                <p className="text-[11px] text-[#FF453A] mt-1">{fieldErrors.confirmPassword}</p>
+                <span className="text-[11px] text-[#FF453A] mt-1 block">{fieldErrors.confirmPassword}</span>
               )}
             </div>
           </div>
 
-          <div className="flex items-center justify-between text-xs pt-1">
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="text-xs text-[var(--text-muted)] hover:text-white transition-colors flex items-center gap-1.5"
-            >
-              <span>{showPassword ? "Hide passwords" : "Show passwords"}</span>
-            </button>
-            <span className="text-[11px] text-[var(--text-muted)] font-mono">Min 6 chars</span>
+          <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-1">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={showPassword}
+                onChange={(e) => setShowPassword(e.target.checked)}
+                className="rounded border-white/20 bg-white/5 text-[#0A84FF] focus:ring-0"
+              />
+              <span>Show password</span>
+            </label>
+            <span className="font-mono text-[10px]">Min 6 characters</span>
           </div>
 
+          {/* Submit Button */}
           <button
-            id="signup-submit-btn"
             type="submit"
             disabled={loading}
-            className="btn btn-primary w-full h-12 text-sm font-semibold shadow-md flex items-center justify-center gap-2 mt-3"
+            className="btn btn-primary w-full h-12 text-sm font-semibold shadow-md flex items-center justify-center gap-2 mt-2"
           >
             {loading ? (
               <>
@@ -319,7 +314,12 @@ export default function SignupPage() {
                 <span>Creating Account…</span>
               </>
             ) : (
-              <span>Create Account</span>
+              <>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                <span>Register Staff Account</span>
+              </>
             )}
           </button>
 
@@ -335,16 +335,6 @@ export default function SignupPage() {
             </p>
           </div>
         </form>
-
-        <div className="pt-4 border-t border-[var(--border)] flex items-center justify-between text-xs text-[var(--text-muted)]">
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${apiOnline ? "bg-[#30D158]" : "bg-[#FF9F0A]"}`} />
-            <span className="text-[11px]">
-              {apiOnline ? "Backend API Online" : "Local Mock Fallback Ready"}
-            </span>
-          </div>
-          <span className="font-mono text-[10px]">EthioClaim v1.0</span>
-        </div>
       </div>
     </div>
   );

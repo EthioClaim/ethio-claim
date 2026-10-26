@@ -121,16 +121,22 @@ class RiskAssessorService:
                     f"High visual vector similarity detected against historical claim evidence ({vm_summary})."
                 )
             elif below_threshold_matches:
-                # If vector embedding similarity is below 0.85, do NOT trigger a fraud flag based on vector similarity.
-                # In that scenario, rely strictly on other deterministic signals (exact SHA-256 hash match,
+                # If vector embedding similarity is below 0.85, do NOT trigger a fraud flag based on vector similarity alone.
+                # In that scenario, rely strictly on alternative metrics (exact SHA-256 hash,
                 # perceptual hash / pHash distance, or damage detection results) to determine the evidence classification.
                 top_sim = max(vm.similarity for vm in below_threshold_matches)
                 highest_score = max(highest_score, round(top_sim * 0.4, 4))
-                for vm in below_threshold_matches[:2]:
+                for vm in below_threshold_matches[:3]:
                     if vm.claimId and vm.claimId not in matched_claim_ids:
                         matched_claim_ids.append(vm.claimId)
                     if vm.evidenceId and vm.evidenceId not in matched_evidence_ids:
                         matched_evidence_ids.append(vm.evidenceId)
+
+                # Record informative note about sub-threshold visual matches
+                if not is_fraud_flag:
+                    reasons.append(
+                        f"Detected {len(below_threshold_matches)} visual vector candidate(s) (top: {top_sim * 100:.1f}%), but all fall below the 85.0% threshold. Not classified as fraud; evaluated via alternative metrics."
+                    )
 
         # 4. Check Damage Detection status
         has_damage = damage_detections is not None and len(damage_detections) > 0
@@ -148,20 +154,29 @@ class RiskAssessorService:
             )
         elif not has_damage and damage_detections is not None:
             # No vehicle damage detected in image
+            final_reasons = list(reasons)
+            final_reasons.append(
+                "No structural vehicle damage, dent, or crack was detected in this photo. Manual cross-check recommended."
+            )
             return RiskAssessment(
                 label="NO_DAMAGE_DETECTED",
                 score=0.15,
-                reasons=["No structural vehicle damage, dent, or crack was detected in this photo. Manual cross-check recommended."],
+                reasons=final_reasons,
                 matchedClaimIds=matched_claim_ids,
                 matchedEvidenceIds=matched_evidence_ids,
                 requiresExaminerReview=True,
                 ruleVersion=settings.RULE_VERSION,
             )
         else:
+            final_reasons = (
+                list(reasons)
+                if reasons
+                else ["No duplicate image hashes or cross-claim vector anomalies detected."]
+            )
             return RiskAssessment(
                 label="NO_FRAUD_INDICATORS_FOUND",
                 score=round(highest_score, 4),
-                reasons=["No duplicate image hashes or cross-claim vector anomalies detected."],
+                reasons=final_reasons,
                 matchedClaimIds=matched_claim_ids,
                 matchedEvidenceIds=matched_evidence_ids,
                 requiresExaminerReview=False,

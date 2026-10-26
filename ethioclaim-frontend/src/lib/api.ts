@@ -148,13 +148,29 @@ apiClient.interceptors.response.use(
       }
     }
 
-    const message =
+    let rawMsg =
       error.response?.data?.message ||
       error.response?.data?.error ||
       error.message ||
       "An unexpected network error occurred";
 
-    return Promise.reject(new Error(Array.isArray(message) ? message.join(", ") : message));
+    let message = Array.isArray(rawMsg) ? rawMsg.join(", ") : String(rawMsg);
+
+    // Sanitize any raw database, Prisma, or server internal trace from leaking to client UI
+    const isInternalTrace =
+      message.includes("prisma") ||
+      message.includes("DATABASE_URL") ||
+      message.includes("findUnique") ||
+      message.includes("schema.prisma") ||
+      message.includes("invocation in") ||
+      message.includes("PrismaClient") ||
+      (error.response?.status >= 500 && (message.includes("Error:") || message.length > 120));
+
+    if (isInternalTrace) {
+      message = "Database service unavailable. Please check the database connection or use Demo Sandbox.";
+    }
+
+    return Promise.reject(new Error(message));
   }
 );
 
@@ -308,7 +324,16 @@ export async function fetchPolicy(policyId: string): Promise<Policy> {
  * Returns 201 Created
  */
 export async function createClaim(payload: CreateClaimPayload): Promise<Claim> {
-  const { data } = await apiClient.post<Claim>("/claims", payload);
+  const body = {
+    ...payload,
+    vehicle: payload.vehicle
+      ? {
+          ...payload.vehicle,
+          plateNumber: (payload.vehicle as any).plateNumber || payload.vehicle.plate,
+        }
+      : undefined,
+  };
+  const { data } = await apiClient.post<Claim>("/claims", body);
   return data;
 }
 

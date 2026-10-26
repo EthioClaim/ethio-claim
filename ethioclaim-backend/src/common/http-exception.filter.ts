@@ -43,7 +43,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
         `Unhandled error: ${exception.message}`,
         exception.stack,
       );
-      message = exception.message;
+      if (
+        exception.message.includes("prisma") ||
+        exception.message.includes("DATABASE_URL") ||
+        exception.message.includes("invocation") ||
+        exception.message.includes("schema.prisma")
+      ) {
+        message = "Database service unavailable. Please verify database connectivity.";
+        code = "DATABASE_ERROR";
+      } else {
+        message = exception.message;
+      }
     }
 
     response.status(status).json({

@@ -162,13 +162,17 @@ export default function AdminPoliciesPage() {
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between border shadow-lg ${notification.type === "success"
-              ? "bg-[#30D158]/15 border-[#30D158]/40 text-[#30D158]"
-              : "bg-[#FF453A]/15 border-[#FF453A]/40 text-[#FF453A]"
-            }`}
+          className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between border shadow-xl animate-fade-in ${
+            notification.type === "success"
+              ? "bg-[#30D158]/15 border-[#30D158]/40 text-[#70E08B]"
+              : "bg-[#FF453A]/15 border-[#FF453A]/40 text-[#FF6961]"
+          }`}
         >
-          <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="text-white/60 hover:text-white">
+          <div className="flex items-center gap-2">
+            <span>{notification.type === "success" ? "✓" : "⚠️"}</span>
+            <span>{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification(null)} className="text-white/60 hover:text-white ml-3">
             ✕
           </button>
         </div>
@@ -177,17 +181,25 @@ export default function AdminPoliciesPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="badge text-[10px] font-mono tracking-wider bg-[#30D158]/12 text-[#30D158] border border-[#30D158]/30">
+              UNDERWRITING REPOSITORY
+            </span>
+            <span className="badge text-[10px] font-mono bg-white/[0.04] text-[var(--text-muted)] border border-white/10">
+              {filteredPolicies.length} POLICIES
+            </span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
             Policy Registry Administration
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Maintain authoritative insurer policies, update coverage validity dates, and seed test policies
+            Maintain authoritative insurer policies, update coverage validity windows, and seed test policies for claim intake
           </p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/policies/verify"
-            className="btn btn-secondary text-xs py-2 px-3 flex items-center gap-2"
+            className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-2"
           >
             <svg className="w-4 h-4 text-[#64D2FF]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -199,7 +211,7 @@ export default function AdminPoliciesPage() {
               setCreateError(null);
               setIsCreateOpen(true);
             }}
-            className="btn btn-primary text-xs py-2 px-4 shadow-sm flex items-center gap-2"
+            className="btn btn-primary text-xs py-2 px-4 shadow-sm flex items-center gap-2 font-medium"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -211,9 +223,9 @@ export default function AdminPoliciesPage() {
 
       {/* Controls & Search */}
       <div className="card apple-glass p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center text-[var(--text-muted)] pointer-events-none">
+        <div className="flex items-center gap-3 flex-1 min-w-[260px]">
+          <div className="relative flex-1 group">
+            <span className="absolute inset-y-0 left-3 flex items-center text-[var(--text-muted)] group-focus-within:text-[#0A84FF] transition-colors pointer-events-none">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -229,7 +241,7 @@ export default function AdminPoliciesPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="input text-xs w-40"
+            className="select text-xs w-44"
           >
             <option value="ALL">All Statuses</option>
             {STATUS_OPTIONS.map((s) => (
@@ -253,31 +265,31 @@ export default function AdminPoliciesPage() {
       </div>
 
       {/* Policies Table */}
-      <div className="card apple-glass overflow-hidden">
+      <div className="card apple-glass overflow-hidden shadow-xl">
         {loading && policies.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[var(--text-muted)] flex flex-col items-center gap-3">
-            <div className="w-6 h-6 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin" />
-            <span>Loading registered policies from `/api/v1/admin/policies`...</span>
+          <div className="p-14 text-center text-xs text-[var(--text-muted)] flex flex-col items-center gap-3">
+            <div className="w-7 h-7 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin" />
+            <span className="font-mono">Loading registered policies…</span>
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-xs text-[#FF453A] space-y-2">
+          <div className="p-10 text-center text-xs text-[#FF6961] space-y-3">
             <p>Error loading policies: {error}</p>
-            <button onClick={loadPolicies} className="btn btn-secondary text-xs py-1.5 px-3">
+            <button onClick={loadPolicies} className="btn btn-secondary text-xs py-1.5 px-3 mx-auto">
               Retry
             </button>
           </div>
         ) : filteredPolicies.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[var(--text-muted)] space-y-2">
+          <div className="p-14 text-center text-xs text-[var(--text-muted)] space-y-2">
             <svg className="w-10 h-10 mx-auto text-[var(--text-muted)]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <p className="font-semibold text-white">No policies found</p>
+            <p className="font-semibold text-white">No Policies Located</p>
             <p>No insurance policies matched the filter or search criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-white/[0.02] border-b border-[var(--border)] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+              <thead className="bg-white/[0.02] border-b border-[var(--border)] text-[var(--text-muted)] uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
                   <th className="px-5 py-3.5">Policy Number</th>
                   <th className="px-5 py-3.5">Policyholder</th>
@@ -295,7 +307,7 @@ export default function AdminPoliciesPage() {
                   const isExpired = p.status === "EXPIRED";
 
                   return (
-                    <tr key={p.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={p.id} className="hover:bg-white/[0.03] transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="font-mono font-bold text-white tracking-wide">
                           {p.policyNumber}
@@ -322,7 +334,7 @@ export default function AdminPoliciesPage() {
                         )}
                       </td>
 
-                      <td className="px-5 py-3.5 font-mono text-white">
+                      <td className="px-5 py-3.5 font-mono text-white font-medium">
                         {p.coverageAmount
                           ? `${Number(p.coverageAmount).toLocaleString()} ETB`
                           : "—"}
@@ -332,7 +344,7 @@ export default function AdminPoliciesPage() {
                         {p.insurer || "Ethiopian Insurance Corporation"}
                       </td>
 
-                      <td className="px-5 py-3.5 font-mono text-[11px] text-[var(--text-muted)]">
+                      <td className="px-5 py-3.5 font-mono text-[11px] text-[var(--text-muted)] whitespace-nowrap">
                         {p.validFrom ? new Date(p.validFrom).toLocaleDateString() : "—"}
                         {" → "}
                         {p.validTo ? new Date(p.validTo).toLocaleDateString() : "—"}
@@ -340,33 +352,35 @@ export default function AdminPoliciesPage() {
 
                       <td className="px-5 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold font-mono ${isActive
-                              ? "bg-[#30D158]/10 text-[#30D158] border border-[#30D158]/30"
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
+                            isActive
+                              ? "bg-[#30D158]/12 text-[#30D158] border border-[#30D158]/30"
                               : isExpired
-                                ? "bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/30"
-                                : "bg-[#FF9F0A]/10 text-[#FF9F0A] border border-[#FF9F0A]/30"
-                            }`}
+                              ? "bg-[#FF453A]/12 text-[#FF6961] border border-[#FF453A]/30"
+                              : "bg-[#FF9F0A]/12 text-[#FF9F0A] border border-[#FF9F0A]/30"
+                          }`}
                         >
                           <span
-                            className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-[#30D158]" : isExpired ? "bg-[#FF453A]" : "bg-[#FF9F0A]"
-                              }`}
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isActive ? "bg-[#30D158]" : isExpired ? "bg-[#FF453A]" : "bg-[#FF9F0A]"
+                            }`}
                           />
                           {p.status || "ACTIVE"}
                         </span>
                       </td>
 
-                      <td className="px-5 py-3.5 text-right">
+                      <td className="px-5 py-3.5 text-right whitespace-nowrap">
                         <div className="inline-flex items-center gap-2">
                           <Link
                             href={`/claims/new?policyNumber=${encodeURIComponent(p.policyNumber)}`}
-                            className="btn btn-secondary text-xs py-1 px-2 text-[#64D2FF] font-semibold"
+                            className="btn btn-secondary text-xs py-1 px-2.5 text-[#64D2FF] font-semibold"
                             title="File claim using this policy"
                           >
                             Use in Claim
                           </Link>
                           <button
                             onClick={() => openEditModal(p)}
-                            className="btn btn-secondary text-xs py-1 px-2.5 font-semibold"
+                            className="btn btn-secondary text-xs py-1 px-2.5 font-semibold hover:border-[#0A84FF]/40"
                           >
                             Edit
                           </button>
@@ -386,17 +400,20 @@ export default function AdminPoliciesPage() {
         <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
           <div className="card apple-glass modal-content max-w-xl w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
-              <h3 className="text-base font-bold text-white">Register Policy Record</h3>
+              <div>
+                <h3 className="text-base font-bold text-white">Register Policy Record</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Authoritative motor policy record for local verification</p>
+              </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="text-[var(--text-muted)] hover:text-white"
+                className="text-[var(--text-muted)] hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
 
             {createError && (
-              <div className="p-3 rounded-lg text-xs bg-[#FF453A]/10 border border-[#FF453A]/30 text-[#FF453A]">
+              <div className="p-3 rounded-xl text-xs bg-[#FF453A]/12 border border-[#FF453A]/30 text-[#FF6961]">
                 {createError}
               </div>
             )}
@@ -529,7 +546,7 @@ export default function AdminPoliciesPage() {
                 <select
                   value={createForm.status}
                   onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })}
-                  className="input w-full text-xs font-mono"
+                  className="select w-full text-xs font-mono"
                 >
                   <option value="ACTIVE">ACTIVE (Eligible for claim intake)</option>
                   <option value="EXPIRED">EXPIRED (Past coverage date)</option>
@@ -572,14 +589,14 @@ export default function AdminPoliciesPage() {
               </div>
               <button
                 onClick={() => setEditingPolicy(null)}
-                className="text-[var(--text-muted)] hover:text-white"
+                className="text-[var(--text-muted)] hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
 
             {editError && (
-              <div className="p-3 rounded-lg text-xs bg-[#FF453A]/10 border border-[#FF453A]/30 text-[#FF453A]">
+              <div className="p-3 rounded-xl text-xs bg-[#FF453A]/12 border border-[#FF453A]/30 text-[#FF6961]">
                 {editError}
               </div>
             )}
@@ -694,7 +711,7 @@ export default function AdminPoliciesPage() {
                 <select
                   value={editForm.status}
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value })}
-                  className="input w-full text-xs font-mono"
+                  className="select w-full text-xs font-mono"
                 >
                   <option value="ACTIVE">ACTIVE</option>
                   <option value="EXPIRED">EXPIRED</option>

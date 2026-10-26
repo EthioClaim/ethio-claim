@@ -5,10 +5,10 @@ import { fetchAdminUsers, createAdminUser, updateAdminUser } from "@/lib/api";
 import type { AdminUser, UserRole, CreateAdminUserPayload, UpdateAdminUserPayload } from "@/types";
 
 const ROLE_OPTIONS: { value: UserRole; label: string; desc: string }[] = [
-  { value: "EXAMINER", label: "Claims Examiner", desc: "Reviews claims, records assessments, decisions" },
+  { value: "EXAMINER", label: "Claims Examiner", desc: "Reviews claims, records assessments, adjudicates decisions" },
   { value: "INTAKE_USER", label: "Intake Officer", desc: "Initiates claims, uploads evidence, verifies policies" },
-  { value: "ADMIN", label: "System Administrator", desc: "User management, policy registry oversight" },
-  { value: "MANAGER", label: "Claims Manager", desc: "Operational reporting and escalation oversight" },
+  { value: "ADMIN", label: "System Administrator", desc: "User management, policy registry oversight, system audit" },
+  { value: "MANAGER", label: "Claims Manager", desc: "Operational reporting, telemetry, and escalation oversight" },
   { value: "CLAIMANT", label: "External Claimant", desc: "Restricted claimant self-service portal access" },
 ];
 
@@ -158,14 +158,17 @@ export default function AdminUsersPage() {
       {/* Toast Notification */}
       {notification && (
         <div
-          className={`p-4 rounded-xl text-xs font-semibold flex items-center justify-between border shadow-lg ${
+          className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between border shadow-xl animate-fade-in ${
             notification.type === "success"
-              ? "bg-[#30D158]/15 border-[#30D158]/40 text-[#30D158]"
-              : "bg-[#FF453A]/15 border-[#FF453A]/40 text-[#FF453A]"
+              ? "bg-[#30D158]/15 border-[#30D158]/40 text-[#70E08B]"
+              : "bg-[#FF453A]/15 border-[#FF453A]/40 text-[#FF6961]"
           }`}
         >
-          <span>{notification.message}</span>
-          <button onClick={() => setNotification(null)} className="text-white/60 hover:text-white">
+          <div className="flex items-center gap-2">
+            <span>{notification.type === "success" ? "✓" : "⚠️"}</span>
+            <span>{notification.message}</span>
+          </div>
+          <button onClick={() => setNotification(null)} className="text-white/60 hover:text-white ml-3">
             ✕
           </button>
         </div>
@@ -174,11 +177,19 @@ export default function AdminUsersPage() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="badge text-[10px] font-mono tracking-wider bg-[#BF5AF2]/12 text-[#BF5AF2] border border-[#BF5AF2]/30">
+              IDENTITY & ACCESS MANAGEMENT
+            </span>
+            <span className="badge text-[10px] font-mono bg-white/[0.04] text-[var(--text-muted)] border border-white/10">
+              RBAC GOVERNED
+            </span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
             Staff & User Management
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
-            Manage system accounts, assign RBAC roles (Examiner, Intake, Admin), and monitor active states
+            Manage system accounts, assign RBAC roles (Examiner, Intake, Admin), and monitor active authorization states
           </p>
         </div>
         <button
@@ -197,9 +208,9 @@ export default function AdminUsersPage() {
 
       {/* Controls & Search */}
       <div className="card apple-glass p-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3 flex-1 min-w-[240px]">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-3 flex items-center text-[var(--text-muted)] pointer-events-none">
+        <div className="flex items-center gap-3 flex-1 min-w-[260px]">
+          <div className="relative flex-1 group">
+            <span className="absolute inset-y-0 left-3 flex items-center text-[var(--text-muted)] group-focus-within:text-[#0A84FF] transition-colors pointer-events-none">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -208,14 +219,14 @@ export default function AdminUsersPage() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, email or username..."
+              placeholder="Search by name, email, or username..."
               className="input pl-9 text-xs w-full"
             />
           </div>
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="input text-xs w-44"
+            className="select text-xs w-48"
           >
             <option value="ALL">All Roles</option>
             {ROLE_OPTIONS.map((r) => (
@@ -239,36 +250,36 @@ export default function AdminUsersPage() {
       </div>
 
       {/* Users Table */}
-      <div className="card apple-glass overflow-hidden">
+      <div className="card apple-glass overflow-hidden shadow-xl">
         {loading && users.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[var(--text-muted)] flex flex-col items-center gap-3">
-            <div className="w-6 h-6 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin" />
-            <span>Loading staff users from `/api/v1/admin/users`...</span>
+          <div className="p-14 text-center text-xs text-[var(--text-muted)] flex flex-col items-center gap-3">
+            <div className="w-7 h-7 border-2 border-[#0A84FF] border-t-transparent rounded-full animate-spin" />
+            <span className="font-mono">Loading staff directory…</span>
           </div>
         ) : error ? (
-          <div className="p-8 text-center text-xs text-[#FF453A] space-y-2">
-            <p>Error loading staff users: {error}</p>
-            <button onClick={loadUsers} className="btn btn-secondary text-xs py-1.5 px-3">
-              Retry
+          <div className="p-10 text-center text-xs text-[#FF6961] space-y-3">
+            <p>Error loading staff directory: {error}</p>
+            <button onClick={loadUsers} className="btn btn-secondary text-xs py-1.5 px-3 mx-auto">
+              Retry Connection
             </button>
           </div>
         ) : filteredUsers.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[var(--text-muted)] space-y-2">
+          <div className="p-14 text-center text-xs text-[var(--text-muted)] space-y-2">
             <svg className="w-10 h-10 mx-auto text-[var(--text-muted)]/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>
-            <p className="font-semibold text-white">No users found</p>
+            <p className="font-semibold text-white">No Users Found</p>
             <p>No user accounts matched the filter or search criteria.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-white/[0.02] border-b border-[var(--border)] text-[var(--text-muted)] uppercase tracking-wider font-semibold">
+              <thead className="bg-white/[0.02] border-b border-[var(--border)] text-[var(--text-muted)] uppercase tracking-wider font-semibold text-[10px]">
                 <tr>
                   <th className="px-5 py-3.5">User</th>
                   <th className="px-5 py-3.5">Role</th>
-                  <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5">Created</th>
+                  <th className="px-5 py-3.5">Account Status</th>
+                  <th className="px-5 py-3.5">Created Date</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
@@ -278,10 +289,10 @@ export default function AdminUsersPage() {
                   const isActive = u.status === "ACTIVE" || u.active === true || (u.active !== false && u.status !== "INACTIVE");
 
                   return (
-                    <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={u.id} className="hover:bg-white/[0.03] transition-colors">
                       <td className="px-5 py-3.5">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#0A84FF]/10 text-[#64D2FF] font-bold flex items-center justify-center uppercase border border-[#0A84FF]/20 flex-shrink-0">
+                          <div className="w-8 h-8 rounded-full bg-[#0A84FF]/15 text-[#64D2FF] font-bold flex items-center justify-center uppercase border border-[#0A84FF]/25 flex-shrink-0">
                             {u.displayName?.[0] || u.name?.[0] || u.username?.[0] || u.email[0]}
                           </div>
                           <div className="min-w-0">
@@ -297,7 +308,7 @@ export default function AdminUsersPage() {
 
                       <td className="px-5 py-3.5">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold font-mono ${
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
                             u.role === "ADMIN"
                               ? "bg-[#BF5AF2]/15 text-[#BF5AF2] border border-[#BF5AF2]/30"
                               : u.role === "EXAMINER"
@@ -313,10 +324,10 @@ export default function AdminUsersPage() {
 
                       <td className="px-5 py-3.5">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold font-mono ${
                             isActive
-                              ? "bg-[#30D158]/10 text-[#30D158] border border-[#30D158]/30"
-                              : "bg-[#FF453A]/10 text-[#FF453A] border border-[#FF453A]/30"
+                              ? "bg-[#30D158]/12 text-[#30D158] border border-[#30D158]/30"
+                              : "bg-[#FF453A]/12 text-[#FF6961] border border-[#FF453A]/30"
                           }`}
                         >
                           <span
@@ -335,7 +346,7 @@ export default function AdminUsersPage() {
                       <td className="px-5 py-3.5 text-right">
                         <button
                           onClick={() => openEditModal(u)}
-                          className="btn btn-secondary text-xs py-1 px-2.5 font-semibold"
+                          className="btn btn-secondary text-xs py-1 px-3 font-semibold hover:border-[#0A84FF]/40"
                         >
                           Edit
                         </button>
@@ -354,17 +365,20 @@ export default function AdminUsersPage() {
         <div className="modal-overlay" onClick={() => setIsCreateOpen(false)}>
           <div className="card apple-glass modal-content max-w-md w-full p-6 space-y-4 border border-white/10 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between pb-3 border-b border-[var(--border)]">
-              <h3 className="text-base font-bold text-white">Add New Staff Member</h3>
+              <div>
+                <h3 className="text-base font-bold text-white">Add New Staff Member</h3>
+                <p className="text-xs text-[var(--text-muted)] mt-0.5">Configure system credentials and access role</p>
+              </div>
               <button
                 onClick={() => setIsCreateOpen(false)}
-                className="text-[var(--text-muted)] hover:text-white"
+                className="text-[var(--text-muted)] hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
 
             {createError && (
-              <div className="p-3 rounded-lg text-xs bg-[#FF453A]/10 border border-[#FF453A]/30 text-[#FF453A]">
+              <div className="p-3 rounded-xl text-xs bg-[#FF453A]/12 border border-[#FF453A]/30 text-[#FF6961]">
                 {createError}
               </div>
             )}
@@ -431,7 +445,7 @@ export default function AdminUsersPage() {
                 <select
                   value={createForm.role}
                   onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as UserRole })}
-                  className="input w-full text-xs"
+                  className="select w-full text-xs"
                 >
                   {ROLE_OPTIONS.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -476,14 +490,14 @@ export default function AdminUsersPage() {
               </div>
               <button
                 onClick={() => setEditingUser(null)}
-                className="text-[var(--text-muted)] hover:text-white"
+                className="text-[var(--text-muted)] hover:text-white transition-colors"
               >
                 ✕
               </button>
             </div>
 
             {editError && (
-              <div className="p-3 rounded-lg text-xs bg-[#FF453A]/10 border border-[#FF453A]/30 text-[#FF453A]">
+              <div className="p-3 rounded-xl text-xs bg-[#FF453A]/12 border border-[#FF453A]/30 text-[#FF6961]">
                 {editError}
               </div>
             )}
@@ -520,7 +534,7 @@ export default function AdminUsersPage() {
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value as UserRole })}
-                  className="input w-full text-xs"
+                  className="select w-full text-xs"
                 >
                   {ROLE_OPTIONS.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -537,10 +551,10 @@ export default function AdminUsersPage() {
                 <select
                   value={editForm.status}
                   onChange={(e) => setEditForm({ ...editForm, status: e.target.value as "ACTIVE" | "INACTIVE" })}
-                  className="input w-full text-xs"
+                  className="select w-full text-xs"
                 >
-                  <option value="ACTIVE">ACTIVE (Can login and review claims)</option>
-                  <option value="INACTIVE">INACTIVE (Access revoked)</option>
+                  <option value="ACTIVE">ACTIVE (Authorized to authenticate and perform role tasks)</option>
+                  <option value="INACTIVE">INACTIVE (Access revoked / suspended)</option>
                 </select>
               </div>
 

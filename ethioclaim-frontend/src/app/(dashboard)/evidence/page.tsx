@@ -38,6 +38,7 @@ function EvidenceWorkspaceContent() {
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [copiedHash, setCopiedHash] = useState<string | null>(null);
 
   // Deep inspection
   const [selectedItem, setSelectedItem] = useState<FlatEvidenceItem | null>(null);
@@ -61,7 +62,7 @@ function EvidenceWorkspaceContent() {
     setLoading(true);
     setError("");
     try {
-      // 1. Direct fetch from dedicated /api/v1/evidence endpoint (scoped to assigned claims for examiners)
+      // 1. Direct fetch from dedicated /api/v1/evidence endpoint
       const evidenceData = await fetchEvidenceList();
 
       const flat: FlatEvidenceItem[] = [];
@@ -153,6 +154,30 @@ function EvidenceWorkspaceContent() {
     }
   }, [selectedItem, inspectEvidence]);
 
+  function copyToClipboard(text: string, label: string) {
+    if (navigator?.clipboard) {
+      navigator.clipboard.writeText(text);
+      setCopiedHash(label);
+      setTimeout(() => setCopiedHash(null), 2000);
+    }
+  }
+
+  const isEvidenceFraud = (ev: Evidence) => {
+    const rawMatches: any[] = (ev as any).matches || [];
+    const hasActionableMatch = rawMatches.some((m) => {
+      if (m.matchType === "EXACT_HASH") return true;
+      if (m.matchType === "NEAR_DUPLICATE" || m.matchType === "PERCEPTUAL_HASH") return true;
+      if (m.score != null && Number(m.score) >= 0.85) return true;
+      return false;
+    });
+    return (
+      ev.hasMatches ||
+      hasActionableMatch ||
+      (ev as any).riskLabel === "POTENTIAL_FRAUD" ||
+      (ev as any).analysis?.detections?.riskAssessment?.label === "POTENTIAL_FRAUD"
+    );
+  };
+
   const filteredItems = items.filter(({ evidence, claim }) => {
     const q = searchQuery.toLowerCase().trim();
     const matchesQ =
@@ -167,10 +192,7 @@ function EvidenceWorkspaceContent() {
       !statusFilter ||
       (statusFilter === "PROCESSING" &&
         (evidence.analysisStatus === "PENDING" || evidence.analysisStatus === "PROCESSING")) ||
-      (statusFilter === "FRAUD" &&
-        (evidence.hasMatches ||
-          (evidence as any).matches?.length > 0 ||
-          (evidence as any).analysis?.detections?.riskAssessment?.label === "POTENTIAL_FRAUD")) ||
+      (statusFilter === "FRAUD" && isEvidenceFraud(evidence)) ||
       (statusFilter === "NO_DAMAGE" &&
         ((evidence as any).noDamageDetected ||
           (evidence.analysisStatus === "COMPLETED" &&
@@ -184,137 +206,190 @@ function EvidenceWorkspaceContent() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
+      {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-[var(--border)]">
         <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="badge text-[10px] font-mono tracking-wider bg-[#0A84FF]/12 text-[#64D2FF] border border-[#0A84FF]/30">
+              FORENSIC DIGITAL ARCHIVE
+            </span>
+            <span className="badge text-[10px] font-mono bg-white/[0.04] text-[var(--text-muted)] border border-white/10">
+              {filteredItems.length} {filteredItems.length === 1 ? "RECORD" : "RECORDS"}
+            </span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-[-0.03em] heading-display">
-            {isExaminer ? "Assigned Evidence Inspection" : "Evidence Archives"}
+            {isExaminer ? "Assigned Evidence Inspection" : "Evidence Repository"}
           </h2>
           <p className="text-xs sm:text-sm text-[var(--text-muted)] mt-1">
             {isExaminer
               ? "Photographic evidence attached to claims assigned to your review queue"
-              : "Repository of uploaded vehicular damage photos and AI forensic analyses"}
+              : "Repository of uploaded vehicular damage photos, cryptographic hashes, and AI forensic findings"}
           </p>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/claims" className="btn btn-secondary text-xs py-2 px-4">
-            ← View Claims Queue
+          <Link href="/claims" className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-2">
+            <svg className="w-3.5 h-3.5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Claims Queue</span>
           </Link>
+          <button
+            onClick={() => loadAllEvidence()}
+            disabled={loading}
+            className="btn btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5"
+            title="Reload evidence catalog"
+          >
+            <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>Refresh</span>
+          </button>
         </div>
       </div>
 
-      {/* Examiner Policy Notice Banner (Section 4: No upload button for examiners) */}
+      {/* Role Notice Card */}
       {isExaminer ? (
-        <div className="card apple-glass p-4 border border-[#0A84FF]/25 bg-[#0A84FF]/5 flex items-center justify-between">
+        <div className="card apple-glass p-4 border border-[#0A84FF]/25 bg-gradient-to-r from-[#0A84FF]/[0.08] to-transparent flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#0A84FF]/10 text-[#64D2FF] flex items-center justify-center font-bold text-base">
+            <div className="w-9 h-9 rounded-xl bg-[#0A84FF]/15 text-[#64D2FF] flex items-center justify-center font-bold text-base flex-shrink-0 border border-[#0A84FF]/30">
               🛡️
             </div>
             <div>
-              <p className="text-xs font-bold text-white uppercase tracking-wider">Examiner Workspace</p>
+              <p className="text-xs font-bold text-white uppercase tracking-wider">Examiner Workspace Scope</p>
               <p className="text-xs text-[var(--text-muted)] mt-0.5">
-                Evidence submission is restricted to claimants. Review verified forensic metadata and computer vision findings below.
+                Evidence submission is restricted to claimant intake. Review verified computer vision detections, pHash match candidates, and confidence levels below.
               </p>
             </div>
           </div>
-          <span className="badge text-[10px] bg-[#0A84FF]/15 text-[#64D2FF] border border-[#0A84FF]/30">
+          <span className="badge text-[10px] bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/40 font-mono flex-shrink-0">
             Assigned Claims Only
           </span>
         </div>
       ) : (
-        <div className="card apple-glass p-4 border border-white/10 bg-white/[0.02] flex items-center justify-between">
-          <p className="text-xs text-[var(--text-muted)]">
-            To submit new photographic evidence for an active claim, visit the specific claim and navigate to Evidence Intake.
-          </p>
-          <Link href="/claims" className="btn btn-primary text-xs py-1.5 px-3">
+        <div className="card apple-glass p-4 border border-white/10 bg-white/[0.02] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2 h-2 rounded-full bg-[#30D158]" />
+            <p className="text-xs text-[var(--text-muted)]">
+              To attach new photographic evidence to an active claim, open the specific claim file and navigate to its Intake Evidence section.
+            </p>
+          </div>
+          <Link href="/claims" className="btn btn-primary text-xs py-1.5 px-3.5 flex-shrink-0 font-medium">
             Find Claim
           </Link>
         </div>
       )}
 
-      {/* Filter and Search Bar */}
-      <div className="card apple-glass p-4 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-56 group">
-          <svg
-            className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-[#0A84FF] transition-colors"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by photo filename, evidence ID, or claim #…"
-            className="input pl-10 h-10 text-xs rounded-xl w-full"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      {/* Search & Segmented Filter Bar */}
+      <div className="card apple-glass p-4 space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-3">
+          {/* Spotlight Search */}
+          <div className="relative flex-1 group">
+            <svg
+              className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] group-focus-within:text-[#0A84FF] transition-colors"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by photo filename, hash, or claim #…"
+              className="input pl-10 h-10 text-xs rounded-xl w-full"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[var(--text-muted)] hover:text-white"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Quick Filter Capsule */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+            {[
+              { id: "", label: "All" },
+              { id: "PROCESSING", label: "Processing" },
+              { id: "FRAUD", label: "Fraud Alert" },
+              { id: "NO_DAMAGE", label: "No Damage" },
+              { id: "COMPLETED", label: "Completed" },
+              { id: "FAILED", label: "Failed" },
+            ].map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setStatusFilter(f.id)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all whitespace-nowrap ${
+                  statusFilter === f.id
+                    ? "bg-[#0A84FF] text-white shadow-sm font-semibold"
+                    : "text-[var(--text-muted)] hover:text-white hover:bg-white/[0.05]"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
         </div>
-
-        <select
-          className="select h-10 text-xs rounded-xl min-w-44"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">All AI States</option>
-          <option value="PROCESSING">AI Processing / Pending</option>
-          <option value="FRAUD">Fraud Review</option>
-          <option value="NO_DAMAGE">No Damage Detected</option>
-          <option value="COMPLETED">Completed</option>
-          <option value="FAILED">Analysis Failed / Manual Check</option>
-        </select>
-
-        <button
-          onClick={() => loadAllEvidence()}
-          disabled={loading}
-          className="btn btn-secondary h-10 px-3 text-xs flex items-center gap-1.5 ml-auto"
-        >
-          <svg className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>Refresh</span>
-        </button>
       </div>
 
       {error && (
         <div className="p-4 rounded-xl bg-[#FF453A]/10 border border-[#FF453A]/30 text-xs text-[#FF6961] flex items-center justify-between">
-          <span>{error}</span>
-          <button onClick={() => loadAllEvidence()} className="underline ml-3">Retry</button>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>{error}</span>
+          </div>
+          <button onClick={() => loadAllEvidence()} className="underline font-semibold ml-3">Retry</button>
         </div>
       )}
 
       {/* Main Grid: Left Thumbnails List, Right Deep Inspection */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-pulse">
-          <div className="skeleton h-80 rounded-2xl" />
-          <div className="md:col-span-2 skeleton h-80 rounded-2xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-pulse">
+          <div className="skeleton h-96 rounded-2xl" />
+          <div className="lg:col-span-2 skeleton h-96 rounded-2xl" />
         </div>
       ) : filteredItems.length === 0 ? (
         <div className="card apple-glass p-16 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-[var(--text-muted)] text-xl">
+          <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mx-auto text-[var(--text-muted)] text-2xl">
             📷
           </div>
-          <p className="text-sm font-bold text-white">No Evidence Found</p>
+          <p className="text-sm font-bold text-white">No Matching Evidence Records</p>
           <p className="text-xs text-[var(--text-muted)] max-w-sm mx-auto">
             {isExaminer
               ? "There are currently no photographic evidence records attached to claims assigned to you."
-              : "No evidence records match your search criteria."}
+              : "No evidence records match the search filter. Clear search or check other criteria."}
           </p>
+          {(searchQuery || statusFilter) && (
+            <button
+              onClick={() => {
+                setSearchQuery("");
+                setStatusFilter("");
+              }}
+              className="btn btn-secondary text-xs py-1.5 px-3 mx-auto"
+            >
+              Clear Filters
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {/* Thumbnails Sidebar */}
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs text-[var(--text-muted)] px-1">
-              <span className="font-semibold uppercase tracking-wider">
-                Assigned Photos ({filteredItems.length})
+              <span className="font-semibold uppercase tracking-wider text-[11px]">
+                Photographs ({filteredItems.length})
               </span>
-              <span>Select to inspect</span>
+              <span className="text-[10px] font-mono">Click to inspect</span>
             </div>
 
-            <div className="space-y-2.5 max-h-[750px] overflow-y-auto pr-1">
+            <div className="space-y-2 max-h-[750px] overflow-y-auto pr-1">
               {filteredItems.map(({ evidence: ev, claim }) => {
                 const isSelected = selectedItem?.evidence.id === ev.id;
                 const fileUrl = getAuthenticatedEvidenceUrl(ev);
@@ -325,7 +400,7 @@ function EvidenceWorkspaceContent() {
                     onClick={() => setSelectedItem({ evidence: ev, claim })}
                     className={`card p-3 rounded-2xl cursor-pointer transition-all flex items-center gap-3.5 border ${
                       isSelected
-                        ? "bg-white/[0.08] border-[#0A84FF] ring-2 ring-[#0A84FF]/30 shadow-md"
+                        ? "bg-white/[0.08] border-[#0A84FF] ring-2 ring-[#0A84FF]/30 shadow-lg"
                         : "bg-white/[0.02] border-white/10 hover:bg-white/[0.05] hover:border-white/20"
                     }`}
                   >
@@ -355,7 +430,7 @@ function EvidenceWorkspaceContent() {
                                 return;
                               }
                             } catch {
-                              // Proceed to fallback
+                              // Fallback
                             }
                           }
                           target.style.display = "none";
@@ -386,12 +461,12 @@ function EvidenceWorkspaceContent() {
                       <div className="flex flex-wrap items-center gap-1 mt-1">
                         {(ev.analysisStatus === "PENDING" || ev.analysisStatus === "PROCESSING") && (
                           <span className="badge text-[9px] font-semibold bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 animate-pulse">
-                            AI Processing
+                            Processing
                           </span>
                         )}
                         {(ev.hasMatches || (ev as any).matches?.length > 0 || (ev as any).riskLabel === "POTENTIAL_FRAUD") && (
                           <span className="badge text-[9px] font-semibold bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
-                            Fraud Review
+                            Fraud Match
                           </span>
                         )}
                         {((ev as any).noDamageDetected || (ev.analysisStatus === "COMPLETED" && (ev as any).detections?.length === 0)) && (
@@ -401,12 +476,12 @@ function EvidenceWorkspaceContent() {
                         )}
                         {ev.analysisStatus === "COMPLETED" && (
                           <span className="badge text-[9px] font-semibold bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30">
-                            Completed
+                            Analyzed
                           </span>
                         )}
                         {ev.analysisStatus === "FAILED" && (
                           <span className="badge text-[9px] font-semibold bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40">
-                            Failed / Review
+                            Failed
                           </span>
                         )}
                       </div>
@@ -442,9 +517,12 @@ function EvidenceWorkspaceContent() {
                     <div className="flex items-center gap-2">
                       <Link
                         href={`/claims/${selectedItem.claim.id}`}
-                        className="btn btn-secondary text-xs py-1.5 px-3"
+                        className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5"
                       >
-                        Open Claim
+                        <span>Open Claim</span>
+                        <svg className="w-3.5 h-3.5 text-[var(--text-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                        </svg>
                       </Link>
                       <a
                         href={getEvidenceFileUrl(selectedItem.evidence.id)}
@@ -461,34 +539,58 @@ function EvidenceWorkspaceContent() {
                   </div>
 
                   {/* AI Status Banner */}
-                  <div className="flex flex-wrap items-center gap-2 pt-1">
-                    {analysis?.status === "PENDING" && (
-                      <span className="badge bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 text-xs px-2.5 py-1 animate-pulse">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF] inline-block mr-1.5" />
-                        AI Processing
-                      </span>
-                    )}
-                    {(matches.length > 0 || analysis?.riskAssessment?.label === "POTENTIAL_FRAUD") && (
-                      <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
-                        ⚠️ Fraud Review Flagged ({matches.length} Matches)
-                      </span>
-                    )}
-                    {analysis?.status === "COMPLETED" && (!analysis?.detections || analysis.detections.length === 0) && (
-                      <span className="badge bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40 text-xs px-2.5 py-1 font-semibold">
-                        🔍 No Damage Detected (Examiner Cross-Check Required)
-                      </span>
-                    )}
-                    {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
-                      <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
-                        ✓ AI Damage Localized ({analysis.detections.length} Parts)
-                      </span>
-                    )}
-                    {(analysis?.status === "FAILED" || selectedItem.evidence.analysisStatus === "FAILED") && (
-                      <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
-                        ⚠️ AI Inconclusive / Failed (Examiner Manual Inspection Required)
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const actionableFraudMatches = matches.filter((m) => {
+                      if (m.matchType === "EXACT_HASH") return true;
+                      if (m.matchType === "NEAR_DUPLICATE" || m.matchType === "PERCEPTUAL_HASH") return true;
+                      if (m.score !== undefined && Number(m.score) >= 0.85) return true;
+                      return false;
+                    });
+                    const subThresholdVisualMatches = matches.filter((m) => {
+                      const isVisual = m.matchType === "VISUAL_SIMILARITY" || m.matchType === "EMBEDDING_SIMILARITY";
+                      return isVisual && m.score !== undefined && Number(m.score) < 0.85;
+                    });
+                    const isFraudFlagged =
+                      actionableFraudMatches.length > 0 ||
+                      (analysis?.riskAssessment?.label === "POTENTIAL_FRAUD" &&
+                        !analysis?.riskAssessment?.reasons?.every((r: string) => r.includes("below") && r.includes("threshold")));
+
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        {analysis?.status === "PENDING" && (
+                          <span className="badge bg-[#64D2FF]/15 text-[#64D2FF] border border-[#64D2FF]/30 text-xs px-2.5 py-1 animate-pulse">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#64D2FF] inline-block mr-1.5" />
+                            AI Pipeline Processing
+                          </span>
+                        )}
+                        {isFraudFlagged && (
+                          <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
+                            ⚠️ Fraud Review Flagged ({actionableFraudMatches.length > 0 ? `${actionableFraudMatches.length} High Match(es)` : "Policy Rule"})
+                          </span>
+                        )}
+                        {!isFraudFlagged && subThresholdVisualMatches.length > 0 && (
+                          <span className="badge bg-[#0A84FF]/15 text-[#64D2FF] border border-[#0A84FF]/30 text-xs px-2.5 py-1 font-medium">
+                            ℹ️ {subThresholdVisualMatches.length} Visual Match(es) &lt; 85% Threshold (Non-Fraud)
+                          </span>
+                        )}
+                        {analysis?.status === "COMPLETED" && (!analysis?.detections || analysis.detections.length === 0) && (
+                          <span className="badge bg-[#FF9F0A]/20 text-[#FFD60A] border border-[#FF9F0A]/40 text-xs px-2.5 py-1 font-semibold">
+                            🔍 No Damage Detected (Examiner Cross-Check Required)
+                          </span>
+                        )}
+                        {analysis?.status === "COMPLETED" && analysis?.detections && analysis.detections.length > 0 && (
+                          <span className="badge bg-[#30D158]/15 text-[#70E08B] border border-[#30D158]/30 text-xs px-2.5 py-1">
+                            ✓ AI Damage Localized ({analysis.detections.length} Parts Detected)
+                          </span>
+                        )}
+                        {(analysis?.status === "FAILED" || selectedItem.evidence.analysisStatus === "FAILED") && (
+                          <span className="badge bg-[#FF453A]/20 text-[#FF6961] border border-[#FF453A]/40 text-xs px-2.5 py-1 font-semibold">
+                            ⚠️ AI Inconclusive / Failed (Examiner Manual Inspection Required)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
 
                   {/* Main Visual Display */}
                   <div className="relative rounded-2xl overflow-hidden bg-black/60 border border-white/10 min-h-[260px] max-h-[480px] flex items-center justify-center p-2">
@@ -534,19 +636,40 @@ function EvidenceWorkspaceContent() {
 
                   {/* Forensic Hashes Strip */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-white/[0.02] p-3.5 rounded-xl border border-white/5 font-mono">
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] block mb-0.5">
-                        SHA-256 Digest (Exact Duplicate Check)
-                      </span>
-                      <span className="text-[#64D2FF] text-[11px] break-all select-all">
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                          SHA-256 Digest (Exact Match)
+                        </span>
+                        {selectedItem.evidence.sha256 && (
+                          <button
+                            onClick={() => copyToClipboard(selectedItem.evidence.sha256!, "sha")}
+                            className="text-[10px] text-[var(--text-muted)] hover:text-white"
+                          >
+                            {copiedHash === "sha" ? "✓ Copied" : "Copy"}
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-[#64D2FF] text-[11px] break-all select-all block">
                         {selectedItem.evidence.sha256 || "Digest computed during intake"}
                       </span>
                     </div>
-                    <div>
-                      <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)] block mb-0.5">
-                        Perceptual Hash (pHash Near-Duplicate)
-                      </span>
-                      <span className="text-[#FFD60A] text-[11px] break-all select-all">
+
+                    <div className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] uppercase tracking-wider text-[var(--text-muted)]">
+                          pHash (Perceptual Near-Match)
+                        </span>
+                        {selectedItem.evidence.phash && (
+                          <button
+                            onClick={() => copyToClipboard(selectedItem.evidence.phash!, "phash")}
+                            className="text-[10px] text-[var(--text-muted)] hover:text-white"
+                          >
+                            {copiedHash === "phash" ? "✓ Copied" : "Copy"}
+                          </button>
+                        )}
+                      </div>
+                      <span className="text-[#FFD60A] text-[11px] break-all select-all block">
                         {selectedItem.evidence.phash || "Computed on model ingest"}
                       </span>
                     </div>

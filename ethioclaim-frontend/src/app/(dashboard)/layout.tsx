@@ -111,63 +111,68 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="relative flex min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/30 selection:text-white">
-      {/* Apple Subtle Ambient Depth / Specular Glow */}
+    <div className="relative flex min-h-screen bg-[var(--bg-base)] text-[var(--text-primary)] selection:bg-[#0A84FF]/25 selection:text-[#64D2FF]">
+      {/* ── Apple Ambient Subtle Specular Bloom ── */}
       <div 
         className="pointer-events-none fixed inset-0 z-0 overflow-hidden" 
         aria-hidden="true"
       >
         <div 
-          className="absolute -top-[20%] right-[10%] w-[650px] h-[550px] rounded-full opacity-[0.07] blur-[140px]"
-          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 60%, transparent 100%)" }}
+          className="absolute -top-[25%] right-[5%] w-[700px] h-[600px] rounded-full opacity-[0.055] blur-[160px]"
+          style={{ background: "radial-gradient(circle, #0A84FF 0%, #64D2FF 50%, transparent 80%)" }}
         />
         <div 
-          className="absolute top-[40%] -left-[10%] w-[500px] h-[500px] rounded-full opacity-[0.04] blur-[120px]"
-          style={{ background: "radial-gradient(circle, #BF5AF2 0%, transparent 80%)" }}
+          className="absolute top-[45%] -left-[12%] w-[550px] h-[550px] rounded-full opacity-[0.035] blur-[150px]"
+          style={{ background: "radial-gradient(circle, #BF5AF2 0%, #5E5CE6 50%, transparent 80%)" }}
         />
       </div>
 
-      {/* Mobile Drawer Backdrop Scrim */}
+      {/* Mobile Drawer Backdrop Scrim with Apple blur */}
       {mobileNavOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden transition-opacity duration-300"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-md lg:hidden transition-opacity duration-300"
           onClick={() => setMobileNavOpen(false)}
           aria-hidden="true"
         />
       )}
 
-      {/* Structural Translucent Sidebar */}
+      {/* Translucent macOS-Style Sidebar */}
       <Sidebar isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
       {/* Main Content Area */}
       <div className="relative z-10 flex flex-1 flex-col min-w-0 min-h-screen" style={{ marginLeft: "var(--sidebar-offset)" }}>
         {mockActive && (
-          <div className="sticky top-0 z-40 bg-[#FF9F0A]/15 border-b border-[#FF9F0A]/35 px-4 py-2.5 flex items-center justify-between text-xs text-[#FFD60A] backdrop-blur-md">
-            <div className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-[#FF9F0A] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              <span className="font-medium">
-                Offline/demo data — backend or database unavailable. Retrying in background...
+          <div className="sticky top-0 z-40 bg-[#FF9F0A]/12 border-b border-[#FF9F0A]/25 px-5 py-2 flex items-center justify-between text-xs text-[#FFD60A] backdrop-blur-xl">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-2 w-2 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF9F0A] opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF9F0A]" />
+              </span>
+              <span className="font-medium tracking-tight">
+                Simulated Sandbox Data — local backend offline. Auto-syncing in background.
               </span>
             </div>
             <button
               onClick={handleRetryConnection}
               disabled={retrying}
-              className="px-3 py-1 rounded bg-[#FF9F0A]/20 hover:bg-[#FF9F0A]/30 border border-[#FF9F0A]/40 text-[#FFD60A] text-xs font-semibold transition-colors disabled:opacity-50"
+              className="px-3 py-1 rounded-lg bg-[#FF9F0A]/20 hover:bg-[#FF9F0A]/30 border border-[#FF9F0A]/35 text-[#FFD60A] text-[11px] font-semibold transition-all active:scale-95 disabled:opacity-50"
             >
-              {retrying ? "Retrying..." : "Retry Connection"}
+              {retrying ? "Pinging..." : "Retry Connection"}
             </button>
           </div>
         )}
+
         <Topbar onToggleMobileNav={() => setMobileNavOpen((prev) => !prev)} />
-        <main className="flex-1 px-6 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9 overflow-y-auto">
-          <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 pb-12">
+
+        <main className="flex-1 px-5 py-6 sm:px-8 sm:py-8 lg:px-10 lg:py-9 overflow-y-auto">
+          <div className="max-w-7xl mx-auto w-full flex flex-col gap-6 sm:gap-8 pb-14">
             {authorized ? children : (
-              <div className="flex items-center justify-center min-h-[400px]">
-                <div className="flex flex-col items-center gap-3">
+              <div className="flex items-center justify-center min-h-[440px]">
+                <div className="flex flex-col items-center gap-3.5">
                   <div className="w-8 h-8 rounded-full border-2 border-[#0A84FF] border-t-transparent animate-spin" />
-                  <span className="text-xs font-mono text-[var(--text-muted)]">Verifying permissions...</span>
+                  <span className="text-xs font-mono text-[var(--text-muted)] tracking-wider uppercase">
+                    Verifying Workspace Access…
+                  </span>
                 </div>
               </div>
             )}
@@ -177,4 +182,3 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     </div>
   );
 }
-

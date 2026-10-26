@@ -386,6 +386,7 @@ export class ClaimsService {
         claimantEmail: dto.claimant?.email || (dto as any).claimantEmail,
         vehiclePlateNumber:
           dto.vehicle?.plateNumber ||
+          dto.vehicle?.plate ||
           (dto as any).vehiclePlate ||
           (dto as any).vehicleRegistration,
         vehicleMake: dto.vehicle?.make || (dto as any).vehicleMake,

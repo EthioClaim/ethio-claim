@@ -517,6 +517,19 @@ export class EvidenceService {
     }
   }
 
+  private hasActionableFraudMatches(matches: any[]): boolean {
+    if (!matches || !Array.isArray(matches) || matches.length === 0) return false;
+    return matches.some((m) => {
+      // 1. Exact SHA-256 match (alternative deterministic metric)
+      if (m.matchType === 'EXACT_HASH') return true;
+      // 2. Perceptual hash near-duplicate (alternative deterministic metric)
+      if (m.matchType === 'NEAR_DUPLICATE' && (m.distance == null || m.distance <= 10)) return true;
+      // 3. Visual vector similarity strictly at or above 85% (0.85)
+      if (m.matchType === 'VISUAL_SIMILARITY' && m.score != null && Number(m.score) >= 0.85) return true;
+      return false;
+    });
+  }
+
   /**
    * List evidence for a specific claim
    */
@@ -547,7 +560,7 @@ export class EvidenceService {
       caption: ev.caption,
       evidenceType: ev.evidenceType,
       analysisStatus: ev.analysisStatus,
-      hasMatches: ev.matchedBy.length > 0,
+      hasMatches: this.hasActionableFraudMatches(ev.matchedBy),
       uploadedAt: ev.createdAt,
     }));
 
@@ -725,7 +738,7 @@ export class EvidenceService {
             }
           : null,
         matchesCount: ev.matchedBy.length,
-        hasMatches: ev.matchedBy.length > 0,
+        hasMatches: this.hasActionableFraudMatches(ev.matchedBy),
         matches: ev.matchedBy.map((m) => ({
           id: m.id,
           sourceEvidenceId: m.sourceEvidenceId,

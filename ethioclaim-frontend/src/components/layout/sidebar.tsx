@@ -119,13 +119,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
   return (
     <aside className={`sidebar apple-sidebar ${isOpen ? "mobile-open" : ""}`}>
-      {/* ── Brand Header (Apple Elevated Squircle Logo) ── */}
-      <div className="flex items-center gap-3.5 px-6 py-6 border-b border-[var(--border)]">
+      {/* ── Brand Header (Apple Squircle Emblem) ── */}
+      <div className="flex items-center gap-3.5 px-6 py-5 border-b border-[var(--border)]">
         <div
-          className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-md relative overflow-hidden"
+          className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 relative overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, #0A84FF 0%, #0060DF 60%, #64D2FF 100%)",
-            boxShadow: "0 2px 10px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)",
+            background: "linear-gradient(145deg, #0A84FF 0%, #0060DF 65%, #64D2FF 100%)",
+            boxShadow: "0 4px 14px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.4)",
           }}
         >
           <svg className="w-5 h-5 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -140,12 +140,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
         <div className="flex flex-col min-w-0">
           <span className="text-[15px] font-bold tracking-tight text-white leading-tight flex items-center gap-1.5">
             EthioClaim
-            <span className="text-[9px] font-mono font-medium px-1.5 py-0.2 rounded-md bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/30">
+            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-md bg-[#0A84FF]/20 text-[#64D2FF] border border-[#0A84FF]/35">
               PRO
             </span>
           </span>
           <span className="text-[11px] text-[var(--text-muted)] tracking-tight leading-none mt-1">
-            Claims Intelligence
+            Claims Intelligence OS
           </span>
         </div>
 
@@ -164,7 +164,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
       </div>
 
       {/* ── Navigation Groups ── */}
-      <nav className="flex-1 px-3.5 py-5 space-y-6 overflow-y-auto">
+      <nav className="flex-1 px-3 py-5 space-y-6 overflow-y-auto">
         {navGroups
           .filter((group) => !group.adminOnly || user?.role === "ADMIN")
           .map((group) => {
@@ -176,15 +176,15 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
 
             return (
               <div key={group.group} className="space-y-1">
-                <div className="px-3 pb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                <div className="px-3.5 pb-1 flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                   <span>{group.group}</span>
                   {group.adminOnly && (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#BF5AF2]/20 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#BF5AF2]/15 text-[#BF5AF2] border border-[#BF5AF2]/30 font-mono font-bold">
                       ADMIN
                     </span>
                   )}
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-0.5">
                   {visibleItems.map((item) => {
                     const isActive =
                       pathname === item.href ||
@@ -227,7 +227,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps = {}) {
           })}
       </nav>
 
-      {/* ── User Footer Profile Card ── */}
+      {/* ── User Profile Footer Card ── */}
       <div className="p-3.5 border-t border-[var(--border)]">
         <div className="p-2.5 rounded-2xl bg-white/[0.04] border border-white/8 backdrop-blur-md flex items-center justify-between gap-2.5 shadow-sm">
           <div className="flex items-center gap-2.5 min-w-0">
